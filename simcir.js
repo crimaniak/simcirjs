@@ -813,6 +813,7 @@ simcir.$ = function() {
 
   var unit = 16;
   var fontSize = 12;
+  var deviceIdCounter = 0;
 
   var createLabel = function(text) {
     return createSVGElement('text').
@@ -980,12 +981,14 @@ simcir.$ = function() {
     controller($dev, createDeviceController(
         {$ui: $dev, deviceDef: deviceDef,
           headless: headless, scope: scope, doc: null}) );
+    var devCtrl = controller($dev);
+    devCtrl.id = devCtrl.id || 'dev' + (++deviceIdCounter);
     var factory = factories[deviceDef.type];
     if (factory) {
-      factory(controller($dev) );
+      factory(devCtrl);
     }
     if (!headless) {
-      controller($dev).createUI();
+      devCtrl.createUI();
     }
     return $dev;
   };
@@ -1124,7 +1127,8 @@ simcir.$ = function() {
         event.preventDefault();
         event.stopPropagation();
         var $workspace = $(event.target).closest('.simcir-workspace');
-        if (!controller($workspace).data().editable) {
+        var wsData = controller($workspace).data();
+        if (!wsData.editable || !wsData.canEdit) {
           return;
         }
         var title = 'Enter device name ';
@@ -1134,7 +1138,20 @@ simcir.$ = function() {
           on('keydown', function(event) {
             if (event.keyCode == 13) {
               // ENTER
-              setLabel($(this).val() );
+              var oldLabel = $label.text();
+              var newLabel = $(this).val();
+              if (newLabel != oldLabel) {
+                setLabel(newLabel);
+                $workspace.trigger('deviceLabelChanged', {
+                  device: {
+                    id: device.id,
+                    type: device.deviceDef.type,
+                    label: newLabel
+                  },
+                  oldLabel: oldLabel,
+                  newLabel: newLabel
+                });
+              }
               $dlg.remove();
             } else if (event.keyCode == 27) {
               // ESC
@@ -1683,6 +1700,11 @@ simcir.$ = function() {
       height: 200,
       showToolbox: true,
       editable: true,
+      canAdd: true,
+      canRemove: true,
+      canMove: true,
+      canRewire: true,
+      canEdit: true,
       toolbox: defaultToolbox,
       devices: [],
       connectors: [],
@@ -1783,12 +1805,28 @@ simcir.$ = function() {
     var addDevice = function($dev) {
       $devicePane.append($dev);
       $dev.trigger('deviceAdd');
+      var devCtrl = controller($dev);
+      $workspace.trigger('deviceAdded', {
+        device: {
+          id: devCtrl.id,
+          type: devCtrl.deviceDef.type,
+          label: devCtrl.getLabel()
+        }
+      });
     };
 
     var removeDevice = function($dev) {
+      var devCtrl = controller($dev);
+      $workspace.trigger('deviceRemoved', {
+        device: {
+          id: devCtrl.id,
+          type: devCtrl.deviceDef.type,
+          label: devCtrl.getLabel()
+        }
+      });
       $dev.trigger('deviceRemove');
       // before remove, disconnect all
-      controller($dev).disconnectAll();
+      devCtrl.disconnectAll();
       $dev.trigger('dispose');
       updateConnectors();
     };
@@ -1885,6 +1923,11 @@ simcir.$ = function() {
         height: data.height,
         showToolbox: data.showToolbox,
         editable: data.editable,
+        canAdd: data.canAdd,
+        canRemove: data.canRemove,
+        canMove: data.canMove,
+        canRewire: data.canRewire,
+        canEdit: data.canEdit,
         toolbox: toolbox,
         devices: devices,
         connectors: connectors
@@ -1913,6 +1956,11 @@ simcir.$ = function() {
       println('  "width":' + data.width + ',');
       println('  "height":' + data.height + ',');
       println('  "showToolbox":' + data.showToolbox + ',');
+      println('  "canAdd":' + data.canAdd + ',');
+      println('  "canRemove":' + data.canRemove + ',');
+      println('  "canMove":' + data.canMove + ',');
+      println('  "canRewire":' + data.canRewire + ',');
+      println('  "canEdit":' + data.canEdit + ',');
       println('  "toolbox":[');
       printArray(data.toolbox);
       println('  ],');
@@ -1949,7 +1997,22 @@ simcir.$ = function() {
       var off = $workspace.offset();
       var pos = offset($srcNode);
       if ($srcNode.attr('simcir-node-type') == 'in') {
+        var srcCtrl = controller($srcNode);
+        var outNode = srcCtrl.getOutput();
         disconnect($srcNode);
+        if (outNode) {
+          $workspace.trigger('connectionChanged', {
+            type: 'disconnect',
+            output: {
+              deviceId: controller(outNode.$ui.closest('.simcir-device')).id,
+              nodeId: outNode.id
+            },
+            input: {
+              deviceId: controller($srcNode.closest('.simcir-device')).id,
+              nodeId: srcCtrl.id
+            }
+          });
+        }
       }
       dragMoveHandler = function(event) {
         var x = event.pageX - off.left;
@@ -1964,6 +2027,20 @@ simcir.$ = function() {
           var $dstNode = $dst.closest('.simcir-node');
           connect($srcNode, $dstNode);
           updateConnectors();
+          var node1Type = $srcNode.attr('simcir-node-type');
+          var $outNode = node1Type == 'out' ? $srcNode : $dstNode;
+          var $inNode = node1Type == 'in' ? $srcNode : $dstNode;
+          $workspace.trigger('connectionChanged', {
+            type: 'connect',
+            output: {
+              deviceId: controller($outNode.closest('.simcir-device')).id,
+              nodeId: controller($outNode).id
+            },
+            input: {
+              deviceId: controller($inNode.closest('.simcir-device')).id,
+              nodeId: controller($inNode).id
+            }
+          });
         }
       };
     };
@@ -2018,6 +2095,12 @@ simcir.$ = function() {
         $dev.parent().append($dev.detach() );
       }
 
+      var oldDevicePos = {};
+      $.each($selectedDevices, function(i, $d) {
+        var ctrl = controller($d);
+        oldDevicePos[ctrl.id] = transform($d);
+      });
+
       var dragPoint = {
         x: event.pageX - pos.x,
         y: event.pageY - pos.y};
@@ -2043,8 +2126,39 @@ simcir.$ = function() {
           if ($target.closest('.simcir-toolbox').length == 0) {
             adjustDevice($dev);
             updateConnectors();
-          } else {
+            var ctrl = controller($dev);
+            var oldPos = oldDevicePos[ctrl.id];
+            var newPos = transform($dev);
+            if (oldPos && (oldPos.x != newPos.x || oldPos.y != newPos.y)) {
+              $workspace.trigger('deviceMoved', {
+                device: {
+                  id: ctrl.id,
+                  type: ctrl.deviceDef.type,
+                  label: ctrl.getLabel()
+                },
+                from: oldPos,
+                to: newPos
+              });
+            }
+          } else if (data.canRemove) {
             removeDevice($dev);
+          } else {
+            adjustDevice($dev);
+            updateConnectors();
+            var ctrl = controller($dev);
+            var oldPos = oldDevicePos[ctrl.id];
+            var newPos = transform($dev);
+            if (oldPos && (oldPos.x != newPos.x || oldPos.y != newPos.y)) {
+              $workspace.trigger('deviceMoved', {
+                device: {
+                  id: ctrl.id,
+                  type: ctrl.deviceDef.type,
+                  label: ctrl.getLabel()
+                },
+                from: oldPos,
+                to: newPos
+              });
+            }
           }
         });
       };
@@ -2101,11 +2215,14 @@ simcir.$ = function() {
         return;
       }
       if (isActiveNode($target) ) {
+        if (!data.canRewire) return;
         beginConnect(event, $target);
       } else if ($target.closest('.simcir-device').length == 1) {
         if ($target.closest('.simcir-toolbox').length == 1) {
+          if (!data.canAdd) return;
           beginNewDevice(event, $target);
         } else {
+          if (!data.canMove) return;
           beginMoveDevice(event, $target);
         }
       } else {
@@ -2145,7 +2262,9 @@ simcir.$ = function() {
 
     controller($workspace, {
       data: getData,
-      text: getText
+      text: getText,
+      on: function(type, listener) { $workspace.on(type, listener); },
+      off: function(type, listener) { $workspace.off(type, listener); }
     });
 
     return $workspace;

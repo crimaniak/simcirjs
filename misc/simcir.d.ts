@@ -93,6 +93,11 @@ interface SimcirData {
   toolbox?: SimcirDeviceDef[];
   showToolbox?: boolean;
   editable?: boolean;
+  canAdd?: boolean;
+  canRemove?: boolean;
+  canMove?: boolean;
+  canRewire?: boolean;
+  canEdit?: boolean;
   layout? : SimcirCustomLayout;
   devices?: SimcirDeviceInstance[];
   connectors?: SimcirConnectorDef[];
@@ -106,6 +111,66 @@ interface SimcirCustomLayout {
 }
 
 type SimcirTypeFactory = <Def extends SimcirDeviceDef>(device : Def) => void;
+
+// Schema manipulation event detail interfaces
+
+interface SimcirDeviceInfo {
+  id: string;
+  type: string;
+  label: string;
+}
+
+interface SimcirConnectionNodeInfo {
+  deviceId: string;
+  nodeId: string;
+}
+
+interface SimcirDeviceAddedEvent {
+  device: SimcirDeviceInfo;
+}
+
+interface SimcirDeviceRemovedEvent {
+  device: SimcirDeviceInfo;
+}
+
+interface SimcirDeviceMovedEvent {
+  device: SimcirDeviceInfo;
+  from: SimcirPoint;
+  to: SimcirPoint;
+}
+
+interface SimcirDeviceLabelChangedEvent {
+  device: SimcirDeviceInfo;
+  oldLabel: string;
+  newLabel: string;
+}
+
+interface SimcirConnectionChangedEvent {
+  type: 'connect' | 'disconnect';
+  output: SimcirConnectionNodeInfo;
+  input: SimcirConnectionNodeInfo;
+}
+
+type SimcirSchemaEventDetail =
+  SimcirDeviceAddedEvent |
+  SimcirDeviceRemovedEvent |
+  SimcirDeviceMovedEvent |
+  SimcirDeviceLabelChangedEvent |
+  SimcirConnectionChangedEvent;
+
+type SimcirSchemaEventType =
+  'deviceAdded' |
+  'deviceRemoved' |
+  'deviceMoved' |
+  'deviceLabelChanged' |
+  'connectionChanged';
+
+interface SimcirWorkspaceController {
+  data() : SimcirData;
+  text() : string;
+  on(type: SimcirSchemaEventType, listener: (event: SimcirEvent, detail: SimcirSchemaEventDetail) => void) : void;
+  off(type: SimcirSchemaEventType, listener: (event: SimcirEvent, detail: SimcirSchemaEventDetail) => void) : void;
+}
 
 interface Simcir {
   unit: number;
