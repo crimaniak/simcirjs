@@ -164,7 +164,7 @@
         on = device.deviceDef.state.on;
       }
       device.getState = function() {
-        return type == 'Toggle'? { on : on } : null;
+        return { on : on };
       };
 
       device.$ui.on('inputValueChange', function() {

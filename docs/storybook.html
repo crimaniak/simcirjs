@@ -88,9 +88,10 @@ a device label to rename it is disabled.
 
 <h2>Event handling example</h2>
 <p>
-Schema manipulations are logged in real-time to the panel on the right.
-Try dragging devices, rewiring nodes, adding/removing devices, or
-double-clicking labels to rename them.
+Schema manipulations and signal state changes are logged in real-time
+to the panel on the right. Try dragging devices, rewiring nodes,
+adding/removing devices, double-clicking labels to rename them, or
+toggling switches to see signal propagation.
 </p>
 <div id="event-demo" style="display:flex;gap:16px;min-height:200px;">
   <div id="event-demo-schema" style="flex:none;"></div>
@@ -129,7 +130,7 @@ simcir.$(function() {
     logEl.scrollTop = logEl.scrollHeight;
   };
   var events = ['deviceAdded','deviceRemoved','deviceMoved',
-      'deviceLabelChanged','connectionChanged'];
+      'deviceLabelChanged','connectionChanged','schemaChange'];
   events.forEach(function(type) {
     ws.on(type, function(e, detail) {
       log(type, detail);

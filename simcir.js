@@ -1722,6 +1722,37 @@ simcir.$ = function() {
       if (!connectorsValid) {
         updateConnectors();
         connectorsValid = true;
+
+        var signals = [];
+        var buttons = [];
+        $devicePane.children('.simcir-device').each(function() {
+          var device = controller($(this));
+          $.each(device.getInputs(), function(i, node) {
+            signals.push({
+              deviceId: device.id, nodeId: node.id,
+              type: 'in', index: i,
+              label: node.label || '', value: node.getValue()
+            });
+          });
+          $.each(device.getOutputs(), function(i, node) {
+            signals.push({
+              deviceId: device.id, nodeId: node.id,
+              type: 'out', index: i,
+              label: node.label || '', value: node.getValue()
+            });
+          });
+          var state = device.getState();
+          if (state != null) {
+            buttons.push({
+              deviceId: device.id, type: device.deviceDef.type,
+              label: device.getLabel(), state: state
+            });
+          }
+        });
+
+        $workspace.trigger('schemaChange', {
+          signals: signals, buttons: buttons
+        });
       }
     };
 
