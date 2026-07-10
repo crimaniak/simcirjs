@@ -18,194 +18,73 @@
 
 <h1>SimcirJS Storybook</h1>
 
+<script id="base-circuit" type="application/json">
+{
+  "width":400,
+  "height":200,
+  "devices":[
+    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
+    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
+    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
+    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
+  ],
+  "connectors":[
+    {"from":"dev2.in0","to":"dev0.out0"},
+    {"from":"dev1.in0","to":"dev0.out0"},
+    {"from":"dev2.in1","to":"dev1.out0"},
+    {"from":"dev3.in0","to":"dev2.out0"}
+  ]
+}
+</script>
+
 <h2>Without toolbox (showToolbox: false)</h2>
 <p>
 The device palette is hidden. The circuit is still live and its
 existing devices remain draggable/clickable, but no new devices
 can be dragged in.
 </p>
-<div class="simcir">
-{
-  "width":400,
-  "height":200,
-  "showToolbox":false,
-  "devices":[
-    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-  ],
-  "connectors":[
-    {"from":"dev2.in0","to":"dev0.out0"},
-    {"from":"dev2.in1","to":"dev1.out0"},
-    {"from":"dev3.in0","to":"dev2.out0"}
-  ]
-}
-</div>
+<div data-schema-id="base-circuit">{"showToolbox":false}</div>
 
 <h2>Rewire-only mode (canRewire:true, all others false)</h2>
 <p>
 Devices can be connected/disconnected via node clicks, but cannot be
 moved, added, or removed. The toolbox is hidden automatically.
 </p>
-<div class="simcir">
-{
-  "width":400,
-  "height":200,
-  "canAdd":false,
-  "canRemove":false,
-  "canMove":false,
-  "canRewire":true,
-  "showToolbox":false,
-  "devices":[
-    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-  ],
-  "connectors":[
-    {"from":"dev2.in0","to":"dev0.out0"},
-    {"from":"dev2.in1","to":"dev1.out0"},
-    {"from":"dev3.in0","to":"dev2.out0"}
-  ]
-}
-</div>
+<div data-schema-id="base-circuit">{"canAdd":false,"canRemove":false,"canMove":false,"canRewire":true,"showToolbox":false}</div>
 
 <h2>With toolbox (showToolbox: true, default)</h2>
 <p>
 Same circuit as above, but with the device palette shown for comparison.
 </p>
-<div class="simcir">
-{
-  "width":400,
-  "height":200,
-  "showToolbox":true,
-  "devices":[
-    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-  ],
-  "connectors":[
-    {"from":"dev2.in0","to":"dev0.out0"},
-    {"from":"dev2.in1","to":"dev1.out0"},
-    {"from":"dev3.in0","to":"dev2.out0"}
-  ]
-}
-</div>
+<div data-schema-id="base-circuit">{"showToolbox":true}</div>
 
 <h2>Rewire + move only, without toolbox</h2>
 <p>
 Devices can be rewired and repositioned, but no new devices can be
 added and existing ones cannot be removed.
 </p>
-<div class="simcir">
-{
-  "width":400,
-  "height":200,
-  "canAdd":false,
-  "canRemove":false,
-  "canMove":true,
-  "canRewire":true,
-  "showToolbox":false,
-  "devices":[
-    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-  ],
-  "connectors":[
-    {"from":"dev2.in0","to":"dev0.out0"},
-    {"from":"dev2.in1","to":"dev1.out0"},
-    {"from":"dev3.in0","to":"dev2.out0"}
-  ]
-}
-</div>
+<div data-schema-id="base-circuit">{"canAdd":false,"canRemove":false,"canMove":true,"canRewire":true,"showToolbox":false}</div>
 
 <h2>All allowed except adding, with toolbox</h2>
 <p>
 Users can rewire, move, or delete devices, but dragging new devices
 from the toolbox is disabled.
 </p>
-<div class="simcir">
-{
-  "width":400,
-  "height":200,
-  "canAdd":false,
-  "canRemove":true,
-  "canMove":true,
-  "canRewire":true,
-  "showToolbox":true,
-  "devices":[
-    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-  ],
-  "connectors":[
-    {"from":"dev2.in0","to":"dev0.out0"},
-    {"from":"dev2.in1","to":"dev1.out0"},
-    {"from":"dev3.in0","to":"dev2.out0"}
-  ]
-}
-</div>
+<div data-schema-id="base-circuit">{"canAdd":false,"canRemove":true,"canMove":true,"canRewire":true,"showToolbox":true}</div>
 
 <h2>All allowed except deleting, with toolbox</h2>
 <p>
 Users can rewire, move, or add devices, but dragging devices back
 to the toolbox to delete them is disabled.
 </p>
-<div class="simcir">
-{
-  "width":400,
-  "height":200,
-  "canAdd":true,
-  "canRemove":false,
-  "canMove":true,
-  "canRewire":true,
-  "showToolbox":true,
-  "devices":[
-    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-  ],
-  "connectors":[
-    {"from":"dev2.in0","to":"dev0.out0"},
-    {"from":"dev2.in1","to":"dev1.out0"},
-    {"from":"dev3.in0","to":"dev2.out0"}
-  ]
-}
-</div>
+<div data-schema-id="base-circuit">{"canAdd":true,"canRemove":false,"canMove":true,"canRewire":true,"showToolbox":true}</div>
 
 <h2>All allowed except editing labels (canEdit:false)</h2>
 <p>
 Devices can be added, removed, moved, and rewired, but double-clicking
 a device label to rename it is disabled.
 </p>
-<div class="simcir">
-{
-  "width":400,
-  "height":200,
-  "canAdd":true,
-  "canRemove":true,
-  "canMove":true,
-  "canRewire":true,
-  "canEdit":false,
-  "showToolbox":true,
-  "devices":[
-    {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-    {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-    {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-    {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-  ],
-  "connectors":[
-    {"from":"dev2.in0","to":"dev0.out0"},
-    {"from":"dev2.in1","to":"dev1.out0"},
-    {"from":"dev3.in0","to":"dev2.out0"}
-  ]
-}
-</div>
+<div data-schema-id="base-circuit">{"canAdd":true,"canRemove":true,"canMove":true,"canRewire":true,"canEdit":false,"showToolbox":true}</div>
 
 <h2>Event handling example</h2>
 <p>
@@ -217,24 +96,30 @@ double-clicking labels to rename them.
   <div id="event-demo-schema" style="flex:none;"></div>
   <div id="event-log" style="width:400px;height:200px;overflow-y:auto;font-family:monospace;font-size:11px;border:1px solid #ccc;padding:4px;white-space:pre;"></div>
 </div>
+
 <script>
-(function() {
-  var data = {
-    "width":400,
-    "height":200,
-    "showToolbox":true,
-    "devices":[
-      {"type":"DC","id":"dev0","x":64,"y":64,"label":"DC"},
-      {"type":"Toggle","id":"dev1","x":64,"y":128,"label":"Toggle"},
-      {"type":"NAND","id":"dev2","x":160,"y":96,"label":"NAND"},
-      {"type":"LED","id":"dev3","x":256,"y":96,"label":"LED"}
-    ],
-    "connectors":[
-      {"from":"dev2.in0","to":"dev0.out0"},
-      {"from":"dev2.in1","to":"dev1.out0"},
-      {"from":"dev3.in0","to":"dev2.out0"}
-    ]
-  };
+simcir.$(function() {
+  var base = JSON.parse(document.getElementById('base-circuit').textContent);
+
+  // Initialize all example divs
+  simcir.$('[data-schema-id]').each(function() {
+    var el = simcir.$(this);
+    var schemaId = el.attr('data-schema-id');
+    var baseData = JSON.parse(document.getElementById(schemaId).textContent);
+    var opts = JSON.parse(el.text().replace(/^\s+|\s+$/g, '') || '{}');
+    var data = {};
+    simcir.$.extend(data, baseData);
+    simcir.$.extend(data, opts);
+    simcir.setupSimcir(el, data);
+  });
+
+  // Event demo
+  var eventData = {};
+  simcir.$.extend(eventData, base);
+  simcir.$.extend(eventData, {showToolbox: true});
+  var ws = simcir.createWorkspace(eventData);
+  simcir.$('#event-demo-schema').append(ws);
+
   var logEl = document.getElementById('event-log');
   var log = function(eventType, detail) {
     var time = new Date().toLocaleTimeString();
@@ -243,19 +128,14 @@ double-clicking labels to rename them.
     logEl.appendChild(entry);
     logEl.scrollTop = logEl.scrollHeight;
   };
-  simcir.$(function() {
-    var $placeHolder = simcir.$('#event-demo-schema');
-    var ws = simcir.createWorkspace(data);
-    $placeHolder.append(ws);
-    var events = ['deviceAdded','deviceRemoved','deviceMoved',
-        'deviceLabelChanged','connectionChanged'];
-    events.forEach(function(type) {
-      ws.on(type, function(e, detail) {
-        log(type, detail);
-      });
+  var events = ['deviceAdded','deviceRemoved','deviceMoved',
+      'deviceLabelChanged','connectionChanged'];
+  events.forEach(function(type) {
+    ws.on(type, function(e, detail) {
+      log(type, detail);
     });
   });
-})();
+});
 </script>
 
 </body>
