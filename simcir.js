@@ -1917,16 +1917,12 @@ simcir.$ = function() {
           if (hasN) {
             if (ctrl.deviceDef.label.indexOf(prefix) === 0) count++;
           } else {
-            var devLabel = ctrl.deviceDef.label;
-            var match = devLabel == labelMask;
-            console.log('[countDevicesByTypeAndLabel] type=' + type + ' labelMask=' + labelMask + ' devLabel=' + devLabel + ' match=' + match);
-            if (devLabel == labelMask) count++;
+            if (ctrl.deviceDef.label == labelMask) count++;
           }
         } else {
           count++;
         }
       });
-      console.log('[countDevicesByTypeAndLabel] RESULT type=' + type + ' labelMask=' + labelMask + ' count=' + count);
       return count;
     };
 
@@ -1934,10 +1930,7 @@ simcir.$ = function() {
       $toolboxDevicePane.children('.simcir-device').each(function() {
         var ctrl = controller($(this));
         if (ctrl.maxCount != null) {
-          var type = ctrl.deviceDef.type;
-          var mask = ctrl.labelMask;
-          var count = countDevicesByTypeAndLabel(type, mask);
-          console.log('[updateToolboxState] maxCount=' + ctrl.maxCount + ' count=' + count + ' type=' + type + ' labelMask=' + mask + ' disabled=' + (count >= ctrl.maxCount));
+          var count = countDevicesByTypeAndLabel(ctrl.deviceDef.type, ctrl.labelMask);
           if (count >= ctrl.maxCount) {
             $(this).addClass('simcir-toolbox-disabled');
             enableEvents($(this), false);
@@ -2127,10 +2120,8 @@ simcir.$ = function() {
     var beginNewDevice = function(event, $target) {
       var $toolDev = $target.closest('.simcir-device');
       var toolCtrl = controller($toolDev);
-      console.log('[beginNewDevice] type=' + toolCtrl.deviceDef.type + ' labelMask=' + toolCtrl.labelMask + ' maxCount=' + toolCtrl.maxCount);
       if (toolCtrl.maxCount != null &&
           countDevicesByTypeAndLabel(toolCtrl.deviceDef.type, toolCtrl.labelMask) >= toolCtrl.maxCount) {
-        console.log('[beginNewDevice] BLOCKED');
         return;
       }
       var deviceDef = toolCtrl.deviceDef;
