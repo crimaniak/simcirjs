@@ -1906,10 +1906,22 @@ simcir.$ = function() {
       controller($scrollbar).setValues(0, 0, y, workspaceHeight);
     };
 
-    var countDevicesByType = function(type) {
+    var countDevicesByTypeAndLabel = function(type, labelMask) {
       var count = 0;
+      var hasN = labelMask && labelMask.indexOf('%n') >= 0;
+      var prefix = hasN ? labelMask.split('%n')[0] : null;
       $devicePane.children('.simcir-device').each(function() {
-        if (controller($(this)).deviceDef.type == type) count++;
+        var ctrl = controller($(this));
+        if (ctrl.deviceDef.type != type) return;
+        if (labelMask) {
+          if (hasN) {
+            if (ctrl.deviceDef.label.indexOf(prefix) === 0) count++;
+          } else {
+            if (ctrl.deviceDef.label == labelMask) count++;
+          }
+        } else {
+          count++;
+        }
       });
       return count;
     };
@@ -1918,7 +1930,7 @@ simcir.$ = function() {
       $toolboxDevicePane.children('.simcir-device').each(function() {
         var ctrl = controller($(this));
         if (ctrl.maxCount != null) {
-          var count = countDevicesByType(ctrl.deviceDef.type);
+          var count = countDevicesByTypeAndLabel(ctrl.deviceDef.type, ctrl.labelMask);
           if (count >= ctrl.maxCount) {
             $(this).addClass('simcir-toolbox-disabled');
             enableEvents($(this), false);
@@ -2109,13 +2121,13 @@ simcir.$ = function() {
       var $toolDev = $target.closest('.simcir-device');
       var toolCtrl = controller($toolDev);
       if (toolCtrl.maxCount != null &&
-          countDevicesByType(toolCtrl.deviceDef.type) >= toolCtrl.maxCount) {
+          countDevicesByTypeAndLabel(toolCtrl.deviceDef.type, toolCtrl.labelMask) >= toolCtrl.maxCount) {
         return;
       }
       var deviceDef = toolCtrl.deviceDef;
       if (toolCtrl.labelMask) {
         deviceDef = $.extend({}, deviceDef);
-        deviceDef.label = toolCtrl.labelMask.replace('%n', '' + (countDevicesByType(toolCtrl.deviceDef.type) + 1));
+        deviceDef.label = toolCtrl.labelMask.replace('%n', '' + (countDevicesByTypeAndLabel(toolCtrl.deviceDef.type, toolCtrl.labelMask) + 1));
       }
       var $dev = createDevice(deviceDef, false, scope);
       var pos = offset($toolDev);
