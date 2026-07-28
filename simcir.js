@@ -1844,6 +1844,7 @@ simcir.$ = function() {
           label: devCtrl.getLabel()
         }
       });
+      updateToolboxState();
     };
 
     var removeDevice = function($dev) {
@@ -1860,6 +1861,7 @@ simcir.$ = function() {
       devCtrl.disconnectAll();
       $dev.trigger('dispose');
       updateConnectors();
+      updateToolboxState();
     };
 
     var disconnect = function($inNode) {
@@ -1893,12 +1895,39 @@ simcir.$ = function() {
       var y = vgap;
       $.each(data.toolbox, function(i, deviceDef) {
         var $dev = createDevice(deviceDef);
+        var ctrl = controller($dev);
+        ctrl.maxCount = deviceDef.maxCount;
+        ctrl.labelMask = deviceDef.labelMask;
         $toolboxDevicePane.append($dev);
-        var size = controller($dev).getSize();
+        var size = ctrl.getSize();
         transform($dev, (toolboxWidth - barWidth - size.width) / 2, y);
         y += (size.height + fontSize + vgap);
       });
       controller($scrollbar).setValues(0, 0, y, workspaceHeight);
+    };
+
+    var countDevicesByType = function(type) {
+      var count = 0;
+      $devicePane.children('.simcir-device').each(function() {
+        if (controller($(this)).deviceDef.type == type) count++;
+      });
+      return count;
+    };
+
+    var updateToolboxState = function() {
+      $toolboxDevicePane.children('.simcir-device').each(function() {
+        var ctrl = controller($(this));
+        if (ctrl.maxCount != null) {
+          var count = countDevicesByType(ctrl.deviceDef.type);
+          if (count >= ctrl.maxCount) {
+            $(this).addClass('simcir-toolbox-disabled');
+            enableEvents($(this), false);
+          } else {
+            $(this).removeClass('simcir-toolbox-disabled');
+            enableEvents($(this), true);
+          }
+        }
+      });
     };
 
     var getData = function() {
@@ -2077,9 +2106,19 @@ simcir.$ = function() {
     };
 
     var beginNewDevice = function(event, $target) {
-      var $dev = $target.closest('.simcir-device');
-      var pos = offset($dev);
-      $dev = createDevice(controller($dev).deviceDef, false, scope);
+      var $toolDev = $target.closest('.simcir-device');
+      var toolCtrl = controller($toolDev);
+      if (toolCtrl.maxCount != null &&
+          countDevicesByType(toolCtrl.deviceDef.type) >= toolCtrl.maxCount) {
+        return;
+      }
+      var deviceDef = toolCtrl.deviceDef;
+      if (toolCtrl.labelMask) {
+        deviceDef = $.extend({}, deviceDef);
+        deviceDef.label = toolCtrl.labelMask.replace('%n', '' + (countDevicesByType(toolCtrl.deviceDef.type) + 1));
+      }
+      var $dev = createDevice(deviceDef, false, scope);
+      var pos = offset($toolDev);
       transform($dev, pos.x, pos.y);
       $temporaryPane.append($dev);
       var dragPoint = {
@@ -2289,6 +2328,7 @@ simcir.$ = function() {
     $.each(buildCircuit(data, false, scope), function(i, $dev) {
       addDevice($dev);
     });
+    updateToolboxState();
     updateConnectors();
 
     controller($workspace, {
