@@ -37,6 +37,29 @@
 }
 </script>
 
+<script id="custom-circuit" type="application/json">
+{
+  "width":540,
+  "height":200,
+  "devices":[
+    {"type":"DC","id":"dev0","x":32,"y":64,"label":"DC"},
+    {"type":"Toggle","id":"dev1","x":32,"y":128,"label":"Toggle"},
+    {"type":"NAND","id":"dev2","x":112,"y":96,"label":"Big Port","portRadius":8},
+    {"type":"AND","id":"dev3","x":224,"y":64,"label":"Label Padding","rectanglePadding":4},
+    {"type":"XOR","id":"dev4","x":312,"y":128,"label":"Inset Ports","portPadding":3},
+    {"type":"LED","id":"dev5","x":392,"y":96,"label":"Both Custom","portRadius":5,"rectanglePadding":3}
+  ],
+  "connectors":[
+    {"from":"dev2.in0","to":"dev0.out0"},
+    {"from":"dev2.in1","to":"dev1.out0"},
+    {"from":"dev3.in0","to":"dev2.out0"},
+    {"from":"dev3.in1","to":"dev2.out0"},
+    {"from":"dev4.in0","to":"dev3.out0"},
+    {"from":"dev5.in0","to":"dev4.out0"}
+  ]
+}
+</script>
+
 <h2>Without toolbox (showToolbox: false)</h2>
 <p>
 The device palette is hidden. The circuit is still live and its
@@ -85,6 +108,18 @@ Devices can be added, removed, moved, and rewired, but double-clicking
 a device label to rename it is disabled.
 </p>
 <div data-schema-id="base-circuit">{"canAdd":true,"canRemove":true,"canMove":true,"canRewire":true,"canEdit":false,"showToolbox":true}</div>
+
+<h2>Node customization (portRadius / rectanglePadding / portPadding)</h2>
+<p>
+Devices can customize their ports: <code>portRadius</code> (default 4) is the
+port circle radius, <code>rectanglePadding</code> (default 0) adds space
+between the ports and the device drawing (when only <code>portRadius</code>
+is set, padding is derived so this space stays at its default), and
+<code>portPadding</code> (default 0) moves the ports inward from the device
+edges. Here: NAND uses a radius of 8, AND pads its edges by 4, XOR moves its
+ports inward by 3, and the LED uses radius 5 plus padding 3.
+</p>
+<div data-schema-id="custom-circuit">{"showToolbox":true}</div>
 
 <h2>Event handling example</h2>
 <p>

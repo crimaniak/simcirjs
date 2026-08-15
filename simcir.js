@@ -821,7 +821,8 @@ simcir.$ = function() {
       css('font-size', fontSize + 'px');
   };
 
-  var createNode = function(type, label, description, headless) {
+  var createNode = function(type, label, description, headless,
+      portRadius, rectanglePadding) {
     var $node = createSVGElement('g').
       attr('simcir-node-type', type);
     if (!headless) {
@@ -829,7 +830,10 @@ simcir.$ = function() {
     }
     var node = createNodeController({
       $ui: $node, type: type, label: label,
-      description: description, headless: headless});
+      description: description, headless: headless,
+      portRadius: portRadius != null? portRadius : 4,
+      rectanglePadding: rectanglePadding != null?
+          rectanglePadding : 0});
     if (type == 'in') {
       controller($node, createInputNodeController(node) );
     } else if (type == 'out') {
@@ -863,7 +867,7 @@ simcir.$ = function() {
       node.$ui.attr('class', 'simcir-node simcir-node-type-' + node.type);
 
       var $circle = createSVGElement('circle').
-        attr({cx: 0, cy: 0, r: 4});
+        attr({cx: 0, cy: 0, r: node.portRadius});
       node.$ui.on('mouseover', function(event) {
         if (isActiveNode(node.$ui) ) {
           node.$ui.addClass('simcir-node-hover');
@@ -881,11 +885,11 @@ simcir.$ = function() {
         enableEvents($label, false);
         if (align == 'right') {
           $label.attr('text-anchor', 'start').
-            attr('x', 6).
+            attr('x', 6 + node.rectanglePadding).
             attr('y', fontSize / 2);
         } else if (align == 'left') {
           $label.attr('text-anchor', 'end').
-            attr('x', -6).
+            attr('x', -6 - node.rectanglePadding).
             attr('y', fontSize / 2);
         }
         node.$ui.append($label);
@@ -996,8 +1000,16 @@ simcir.$ = function() {
   var createDeviceController = function(device) {
     var inputs = [];
     var outputs = [];
+    var portRadius = device.deviceDef.portRadius != null?
+        device.deviceDef.portRadius : 4;
+    var rectanglePadding = device.deviceDef.rectanglePadding != null?
+        device.deviceDef.rectanglePadding :
+        (device.deviceDef.portRadius != null? portRadius - 4 : 0);
+    var portPadding = device.deviceDef.portPadding != null?
+        device.deviceDef.portPadding : 0;
     var addInput = function(label, description) {
-      var $node = createNode('in', label, description, device.headless);
+      var $node = createNode('in', label, description,
+          device.headless, portRadius, rectanglePadding);
       $node.on('nodeValueChange', function(event) {
         device.$ui.trigger('inputValueChange');
       });
@@ -1009,7 +1021,8 @@ simcir.$ = function() {
       return node;
     };
     var addOutput = function(label, description) {
-      var $node = createNode('out', label, description, device.headless);
+      var $node = createNode('out', label, description,
+          device.headless, portRadius, rectanglePadding);
       if (!device.headless) {
         device.$ui.append($node);
       }
@@ -1072,7 +1085,7 @@ simcir.$ = function() {
     var getSize = function() {
       var nodes = Math.max(device.getInputs().length,
           device.getOutputs().length);
-      return { width: unit * 2,
+      return { width: unit * 2 + rectanglePadding * 2,
         height: unit * Math.max(2, device.halfPitch?
             (nodes + 1) / 2 : nodes)};
     };
@@ -1093,8 +1106,8 @@ simcir.$ = function() {
           transform(node.$ui, x, pitch * i + offset);
         });
       };
-      layoutNodes(getInputs(), 0);
-      layoutNodes(getOutputs(), w);
+      layoutNodes(getInputs(), portPadding);
+      layoutNodes(getOutputs(), w - portPadding);
 
       device.$ui.children('.simcir-device-label').
         attr({x: w / 2, y: h + fontSize});

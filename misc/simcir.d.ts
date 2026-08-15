@@ -51,6 +51,9 @@ interface SimcirDeviceDefBase { [id : string] : string|number }
 interface SimcirDeviceDef extends SimcirDeviceDefBase {
   type: string;
   label?: string;
+  portRadius?: number;
+  rectanglePadding?: number;
+  portPadding?: number;
 }
 
 interface SimcirDeviceInstance extends SimcirDeviceDef {
