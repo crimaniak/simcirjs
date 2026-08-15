@@ -253,9 +253,9 @@
       device.$ui.on('inputValueChange', function() {
         var b = intValue(inputs[0].getValue() );
         if (op != null) {
-          for (var i = 1; i < inputs.length; i += 1) {
-            b = op(b, intValue(inputs[i].getValue() ) );
-          }
+          b = inputs.slice(1).reduce(function(b, input) {
+            return op(b, intValue(input.getValue() ) );
+          }, b);
         }
         b = out(b);
         outputs[0].setValue( (b == 1)? 1 : null);
@@ -396,11 +396,10 @@
       g.drawRect(0, 0, seg.width, seg.height);
     }
     var on;
-    for (var i = 0; i < seg.allSegments.length; i += 1) {
-      var c = seg.allSegments.charAt(i);
+    seg.allSegments.split('').forEach(function(c) {
       on = (pattern != null && pattern.indexOf(c) != -1);
       seg.drawSegment(g, c, on? hiColor : loColor);
-    }
+    });
     on = (pattern != null && pattern.indexOf('.') != -1);
     seg.drawPoint(g, on? hiColor : loColor);
   };
@@ -444,12 +443,9 @@
         device.$ui.append($seg);
 
         var update = function() {
-          var segs = '';
-          for (var i = 0; i < allSegs.length; i += 1) {
-            if (isHot(device.getInputs()[i].getValue() ) ) {
-              segs += allSegs.charAt(i);
-            }
-          }
+          var segs = allSegs.split('').filter(function(c, i) {
+            return isHot(device.getInputs()[i].getValue() );
+          }).join('');
           $seg.children().remove();
           drawSeg(seg, $s.graphics($seg), segs,
               hiColor, loColor, bgColor);
@@ -784,9 +780,9 @@
     };
     device.$ui.on('inputValueChange', function() {
       var busValue = device.getInputs()[0].getValue();
-      for (var i = 0; i < numOutputs; i += 1) {
-        device.getOutputs()[i].setValue(extractValue(busValue, i) );
-      }
+      device.getOutputs().forEach(function(out, i) {
+        out.setValue(extractValue(busValue, i) );
+      });
     });
     var super_createUI = device.createUI;
     device.createUI = function() {
@@ -809,15 +805,10 @@
     }
     device.addOutput('', 'x' + numInputs);
     device.$ui.on('inputValueChange', function() {
-      var busValue = [];
-      var hotCount = 0;
-      for (var i = 0; i < numInputs; i += 1) {
-        var value = device.getInputs()[i].getValue();
-        if (isHot(value) ) {
-          hotCount += 1;
-        }
-        busValue.push(value);
-      }
+      var busValue = device.getInputs().map(function(inNode) {
+        return inNode.getValue();
+      });
+      var hotCount = busValue.filter(isHot).length;
       device.getOutputs()[0].setValue(
           (hotCount > 0)? busValue : null);
     });

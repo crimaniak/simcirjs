@@ -45,17 +45,15 @@ simcir.$ = function() {
   if (debug) {
     var lastKeys = {};
     var showCacheCount = function() {
-      var cnt = 0;
-      var keys = {};
-      for (var k in cache) {
-        cnt += 1;
+      var keys = Object.keys(cache);
+      keys.forEach(function(k) {
         if (!lastKeys[k]) {
           console.log(cache[k]);
         }
-        keys[k] = true;
-      }
-      lastKeys = keys;
-      console.log('cacheCount:' + cnt);
+      });
+      lastKeys = {};
+      keys.forEach(function(k) { lastKeys[k] = true; });
+      console.log('cacheCount:' + keys.length);
       window.setTimeout(showCacheCount, 5000);
     };
     showCacheCount();
@@ -68,12 +66,11 @@ simcir.$ = function() {
       // remove all listeners
       var cacheId = elm[cacheIdKey];
       var listenerMap = cache[cacheId].listenerMap;
-      for (var type in listenerMap) {
-        var listeners = listenerMap[type];
-        for (var i = 0; i < listeners.length; i += 1) {
-          elm.removeEventListener(type, listeners[i]);
-        }
-      }
+      Object.keys(listenerMap).forEach(function(type) {
+        listenerMap[type].forEach(function(listener) {
+          elm.removeEventListener(type, listener);
+        });
+      });
 
       // delete refs
       delete elm[cacheIdKey];
@@ -102,12 +99,7 @@ simcir.$ = function() {
   // add / remove event listener.
   var addEventListener = function(elm, type, listener, add) {
     var listeners = getListeners(elm, type);
-    var newListeners = [];
-    for (var i = 0; i < listeners.length; i += 1) {
-      if (listeners[i] != listener) {
-        newListeners.push(listeners[i]);
-      }
-    }
+    var newListeners = listeners.filter(function(l) { return l != listener; });
     if (add) { newListeners.push(listener); }
     getCache(elm).listenerMap[type] = newListeners;
     return true;
@@ -128,10 +120,10 @@ simcir.$ = function() {
       if (!getCache(e).listenerMap[type]) { continue; }
       event.currentTarget = e;
       var listeners = getCache(e).listenerMap[type];
-      for (var i = 0; i < listeners.length; i += 1) {
-        listeners[i].call(e, event, data);
-        if (event._sIp) { return; }
-      }
+      listeners.some(function(listener) {
+        listener.call(e, event, data);
+        return event._sIp;
+      });
       if (event._sP) { return; }
     }
   };
@@ -139,7 +131,7 @@ simcir.$ = function() {
   var data = function(elm, kv) {
     if (arguments.length == 2) {
       if (typeof kv == 'string') return getData(elm)[kv];
-      for (var k in kv) { getData(elm)[k] = kv[k]; }
+      Object.keys(kv).forEach(function(k) { getData(elm)[k] = kv[k]; });
     } else if (arguments.length == 3) {
       getData(elm)[kv] = arguments[2];
     }
@@ -147,7 +139,8 @@ simcir.$ = function() {
   };
 
   var extend = function(o1, o2) {
-    for (var k in o2) { o1[k] = o2[k]; } return o1;
+    Object.keys(o2).forEach(function(k) { o1[k] = o2[k]; });
+    return o1;
   };
 
   var each = function(it, callback) {
@@ -171,21 +164,15 @@ simcir.$ = function() {
 
   var addClass = function(elm, className, add) {
     var classes = (elm.getAttribute('class') || '').split(/\s+/g);
-    var newClasses = '';
-    for (var i = 0; i < classes.length; i+= 1) {
-      if (classes[i] == className) { continue; }
-      newClasses += ' ' + classes[i];
-    }
+    var newClasses = classes.filter(function(c) { return c != className; })
+        .join(' ');
     if (add) { newClasses += ' ' + className; }
     elm.setAttribute('class', newClasses);
   };
 
   var hasClass = function(elm, className) {
     var classes = (elm.getAttribute('class') || '').split(/\s+/g);
-    for (var i = 0; i < classes.length; i+= 1) {
-      if (classes[i] == className) { return true; }
-    }
-    return false;
+    return classes.indexOf(className) >= 0;
   };
 
   var matches = function(elm, selector) {
@@ -195,21 +182,15 @@ simcir.$ = function() {
       return true;
     }
     var sels = selector.split(/[,\s]+/g);
-    for (var i = 0; i < sels.length; i += 1) {
-      var sel = sels[i];
+    return sels.some(function(sel) {
       if (sel.substring(0, 1) == '#') {
         throw 'not supported:' + sel;
       } else if (sel.substring(0, 1) == '.') {
-        if (hasClass(elm, sel.substring(1) ) ) {
-          return true;
-        }
+        return hasClass(elm, sel.substring(1) );
       } else {
-        if (elm.tagName.toUpperCase() == sel.toUpperCase() ) {
-          return true;
-        }
+        return elm.tagName.toUpperCase() == sel.toUpperCase();
       }
-    }
-    return false;
+    });
   };
 
   var parser = new window.DOMParser();
@@ -237,16 +218,10 @@ simcir.$ = function() {
   };
 
   var buildQuery = function(data) {
-    var query = '';
-    for (var k in data) {
-      if (query.length > 0) {
-        query += '&';
-      }
-      query += window.encodeURIComponent(k);
-      query += '=';
-      query += window.encodeURIComponent(data[k]);
-    }
-    return query;
+    return Object.keys(data).map(function(k) {
+      return window.encodeURIComponent(k) + '=' +
+        window.encodeURIComponent(data[k]);
+    }).join('&');
   };
 
   var parseResponse = function() {
@@ -334,7 +309,7 @@ simcir.$ = function() {
     attr : function(kv) {
       if (arguments.length == 1) {
         if (typeof kv == 'string') return this.getAttribute(kv);
-        for (var k in kv) { this.setAttribute(k, kv[k]); }
+        Object.keys(kv).forEach(function(k) { this.setAttribute(k, kv[k]); }, this);
       } else if (arguments.length == 2) {
         this.setAttribute(kv, arguments[1]);
       }
@@ -343,7 +318,7 @@ simcir.$ = function() {
     prop : function(kv) {
       if (arguments.length == 1) {
         if (typeof kv == 'string') return this[kv];
-        for (var k in kv) { this[k] = kv[k]; }
+        Object.keys(kv).forEach(function(k) { this[k] = kv[k]; }, this);
       } else if (arguments.length == 2) {
         this[kv] = arguments[1];
       }
@@ -352,17 +327,14 @@ simcir.$ = function() {
     css : function(kv) {
       if (arguments.length == 1) {
         if (typeof kv == 'string') return this.style[kv];
-        for (var k in kv) { this.style[k] = kv[k]; }
+        Object.keys(kv).forEach(function(k) { this.style[k] = kv[k]; }, this);
       } else if (arguments.length == 2) {
         this.style[kv] = arguments[1];
       }
       return this;
     },
     data : function(kv) {
-      var args = [ this ];
-      for (var i = 0; i < arguments.length; i += 1) {
-        args.push(arguments[i]);
-      }; 
+      var args = [ this ].concat(Array.prototype.slice.call(arguments) );
       return data.apply(null, args);
     },
     val : function() {
@@ -375,18 +347,18 @@ simcir.$ = function() {
     },
     on : function(type, listener) {
       var types = type.split(/\s+/g);
-      for (var i = 0; i < types.length; i += 1) {
-        this.addEventListener(types[i], listener);
-        addEventListener(this, types[i], listener, true);
-      }
+      types.forEach(function(t) {
+        this.addEventListener(t, listener);
+        addEventListener(this, t, listener, true);
+      }, this);
       return this;
     },
     off : function(type, listener) {
       var types = type.split(/\s+/g);
-      for (var i = 0; i < types.length; i += 1) {
-        this.removeEventListener(types[i], listener);
-        addEventListener(this, types[i], listener, false);
-      }
+      types.forEach(function(t) {
+        this.removeEventListener(t, listener);
+        addEventListener(this, t, listener, false);
+      }, this);
       return this;
     },
     trigger : function(type, data) {
@@ -419,22 +391,22 @@ simcir.$ = function() {
       if (typeof elms == 'string') {
         elms = html(elms);
       }
-      for (var i = 0; i < elms.length; i += 1) {
-        this.appendChild(elms[i]);
-      }
+      Array.prototype.forEach.call(elms, function(elm) {
+        this.appendChild(elm);
+      }, this);
       return this;
     },
     prepend : function(elms) {
       if (typeof elms == 'string') {
         elms = html(elms);
       }
-      for (var i = 0; i < elms.length; i += 1) {
+      Array.prototype.forEach.call(elms, function(elm) {
         if (this.firstChild) {
-          this.insertBefore(elms[i], this.firstChild);
+          this.insertBefore(elm, this.firstChild);
         } else {
-          this.appendChild(elms[i]);
+          this.appendChild(elm);
         }
-      }
+      }, this);
       return this;
     },
     insertBefore : function(elms) {
@@ -472,22 +444,13 @@ simcir.$ = function() {
       return $();
     },
     find : function(selector) {
-      var elms = [];
-      var childNodes = this.querySelectorAll(selector);
-      for (var i = 0; i < childNodes.length; i += 1) {
-        elms.push(childNodes.item(i) );
-      }
+      var elms = Array.prototype.slice.call(this.querySelectorAll(selector) );
       elms.__proto__ = fn;
       return elms;
     },
     children : function(selector) {
-      var elms = [];
-      var childNodes = this.childNodes;
-      for (var i = 0; i < childNodes.length; i += 1) {
-        if (matches(childNodes.item(i), selector) ) {
-          elms.push(childNodes.item(i) );
-        }
-      }
+      var elms = Array.prototype.slice.call(this.childNodes).filter(
+          function(n) { return matches(n, selector); });
       elms.__proto__ = fn;
       return elms;
     },
@@ -598,9 +561,9 @@ simcir.$ = function() {
   // 3. for array
   fn = extend(fn, {
     each : function(callback) {
-      for (var i = 0; i < this.length; i += 1) {
-        callback.call(this[i], i);
-      }
+      Array.prototype.forEach.call(this, function(elm, i) {
+        callback.call(elm, i);
+      });
       return this;
     },
     first : function() {
@@ -628,11 +591,7 @@ simcir.$ = function() {
       } else {
 
         // query
-        var childNodes = document.querySelectorAll(target);
-        var elms = [];
-        for (var i = 0; i < childNodes.length; i += 1) {
-          elms.push(childNodes.item(i) );
-        }
+        var elms = Array.prototype.slice.call(document.querySelectorAll(target) );
         elms.__proto__ = fn;
         return elms;
       }
@@ -942,9 +901,7 @@ simcir.$ = function() {
     var super_setValue = node.setValue;
     var setValue = function(value) {
       super_setValue(value);
-      for (var i = 0; i < inputs.length; i += 1) {
-        inputs[i].setValue(value);
-      }
+      inputs.forEach(function(inNode) { inNode.setValue(value); });
     };
     var connectTo = function(inNode) {
       if (inNode.getOutput() != null) {
