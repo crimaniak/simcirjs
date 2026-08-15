@@ -60,6 +60,30 @@
 }
 </script>
 
+<script id="defaults-circuit" type="application/json">
+{
+  "width":520,
+  "height":200,
+  "portRadius":6,
+  "rectanglePadding":2,
+  "portPadding":1,
+  "devices":[
+    {"type":"DC","id":"dev0","x":32,"y":64,"label":"DC"},
+    {"type":"Toggle","id":"dev1","x":32,"y":128,"label":"Toggle"},
+    {"type":"NAND","id":"dev2","x":136,"y":96,"label":"Inherited Defaults"},
+    {"type":"AND","id":"dev3","x":272,"y":96,"label":"Overridden","portRadius":4,"rectanglePadding":0,"portPadding":0},
+    {"type":"LED","id":"dev4","x":416,"y":96,"label":"LED"}
+  ],
+  "connectors":[
+    {"from":"dev2.in0","to":"dev0.out0"},
+    {"from":"dev2.in1","to":"dev1.out0"},
+    {"from":"dev3.in0","to":"dev2.out0"},
+    {"from":"dev3.in1","to":"dev2.out0"},
+    {"from":"dev4.in0","to":"dev3.out0"}
+  ]
+}
+</script>
+
 <h2>Without toolbox (showToolbox: false)</h2>
 <p>
 The device palette is hidden. The circuit is still live and its
@@ -120,6 +144,16 @@ edges. Here: NAND uses a radius of 8, AND pads its edges by 4, XOR moves its
 ports inward by 3, and the LED uses radius 5 plus padding 3.
 </p>
 <div data-schema-id="custom-circuit">{"showToolbox":true}</div>
+
+<h2>Schema-level node defaults (portRadius / rectanglePadding / portPadding)</h2>
+<p>
+The same three options can be set once on the schema itself, and every
+device that does not specify its own value inherits them. This schema uses
+<code>portRadius: 6</code>, <code>rectanglePadding: 2</code>, and
+<code>portPadding: 1</code>: the DC, Toggle, NAND, and LED inherit all three,
+while the AND overrides them back to 4/0/0.
+</p>
+<div data-schema-id="defaults-circuit">{"showToolbox":true}</div>
 
 <h2>Event handling example</h2>
 <p>

@@ -975,7 +975,7 @@ simcir.$ = function() {
     });
   };
 
-  var createDevice = function(deviceDef, headless, scope) {
+  var createDevice = function(deviceDef, headless, scope, defaults) {
     headless = headless || false;
     scope = scope || null;
     var $dev = createSVGElement('g');
@@ -984,7 +984,8 @@ simcir.$ = function() {
     }
     controller($dev, createDeviceController(
         {$ui: $dev, deviceDef: deviceDef,
-          headless: headless, scope: scope, doc: null}) );
+          headless: headless, scope: scope, doc: null,
+          defaults: defaults || null}) );
     var devCtrl = controller($dev);
     devCtrl.id = devCtrl.id || 'dev' + (++deviceIdCounter);
     var factory = factories[deviceDef.type];
@@ -1000,13 +1001,22 @@ simcir.$ = function() {
   var createDeviceController = function(device) {
     var inputs = [];
     var outputs = [];
+    var defaults = device.defaults || {};
+    var defaultPortRadius = defaults.portRadius != null?
+        defaults.portRadius : 4;
+    var defaultRectanglePadding = defaults.rectanglePadding != null?
+        defaults.rectanglePadding : 0;
+    var defaultPortPadding = defaults.portPadding != null?
+        defaults.portPadding : 0;
     var portRadius = device.deviceDef.portRadius != null?
-        device.deviceDef.portRadius : 4;
+        device.deviceDef.portRadius : defaultPortRadius;
     var rectanglePadding = device.deviceDef.rectanglePadding != null?
         device.deviceDef.rectanglePadding :
-        (device.deviceDef.portRadius != null? portRadius - 4 : 0);
+        (device.deviceDef.portRadius != null?
+            portRadius - defaultPortRadius + defaultRectanglePadding :
+            defaultRectanglePadding);
     var portPadding = device.deviceDef.portPadding != null?
-        device.deviceDef.portPadding : 0;
+        device.deviceDef.portPadding : defaultPortPadding;
     var addInput = function(label, description) {
       var $node = createNode('in', label, description,
           device.headless, portRadius, rectanglePadding);
@@ -1223,7 +1233,7 @@ simcir.$ = function() {
     }
   };
 
-  var buildCircuit = function(data, headless, scope) {
+  var buildCircuit = function(data, headless, scope, defaults) {
     var $devices = [];
     var $devMap = {};
     var getNode = function(path) {
@@ -1238,7 +1248,7 @@ simcir.$ = function() {
         controller($devMap[devId]).getOutputs()[index];
     };
     $.each(data.devices, function(i, deviceDef) {
-      var $dev = createDevice(deviceDef, headless, scope);
+      var $dev = createDevice(deviceDef, headless, scope, defaults);
       transform($dev, deviceDef.x, deviceDef.y);
       $devices.push($dev);
       $devMap[deviceDef.id] = $dev;
@@ -1723,6 +1733,12 @@ simcir.$ = function() {
       connectors: [],
     }, data);
 
+    var nodeDefaults = {
+      portRadius: data.portRadius,
+      rectanglePadding: data.rectanglePadding,
+      portPadding: data.portPadding
+    };
+
     var scope = {};
 
     var workspaceWidth = data.width;
@@ -1907,7 +1923,7 @@ simcir.$ = function() {
       var vgap = 8;
       var y = vgap;
       $.each(data.toolbox, function(i, deviceDef) {
-        var $dev = createDevice(deviceDef);
+        var $dev = createDevice(deviceDef, false, null, nodeDefaults);
         var ctrl = controller($dev);
         ctrl.maxCount = deviceDef.maxCount;
         ctrl.labelMask = deviceDef.labelMask;
@@ -2013,6 +2029,9 @@ simcir.$ = function() {
         canMove: data.canMove,
         canRewire: data.canRewire,
         canEdit: data.canEdit,
+        portRadius: data.portRadius,
+        rectanglePadding: data.rectanglePadding,
+        portPadding: data.portPadding,
         toolbox: toolbox,
         devices: devices,
         connectors: connectors
@@ -2040,6 +2059,15 @@ simcir.$ = function() {
       println('{');
       println('  "width":' + data.width + ',');
       println('  "height":' + data.height + ',');
+      if (data.portRadius != null) {
+        println('  "portRadius":' + data.portRadius + ',');
+      }
+      if (data.rectanglePadding != null) {
+        println('  "rectanglePadding":' + data.rectanglePadding + ',');
+      }
+      if (data.portPadding != null) {
+        println('  "portPadding":' + data.portPadding + ',');
+      }
       println('  "showToolbox":' + data.showToolbox + ',');
       println('  "canAdd":' + data.canAdd + ',');
       println('  "canRemove":' + data.canRemove + ',');
@@ -2142,7 +2170,7 @@ simcir.$ = function() {
         deviceDef = $.extend({}, deviceDef);
         deviceDef.label = toolCtrl.labelMask.replace('%n', '' + (countDevicesByTypeAndLabel(toolCtrl.deviceDef.type, toolCtrl.labelMask) + 1));
       }
-      var $dev = createDevice(deviceDef, false, scope);
+      var $dev = createDevice(deviceDef, false, scope, nodeDefaults);
       var pos = offset($toolDev);
       transform($dev, pos.x, pos.y);
       $temporaryPane.append($dev);
@@ -2350,7 +2378,7 @@ simcir.$ = function() {
     //
 
     loadToolbox(data);
-    $.each(buildCircuit(data, false, scope), function(i, $dev) {
+    $.each(buildCircuit(data, false, scope, nodeDefaults), function(i, $dev) {
       addDevice($dev);
     });
     updateToolboxState();

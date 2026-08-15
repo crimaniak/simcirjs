@@ -102,6 +102,9 @@ interface SimcirData {
   canRewire?: boolean;
   canEdit?: boolean;
   layout? : SimcirCustomLayout;
+  portRadius?: number;
+  rectanglePadding?: number;
+  portPadding?: number;
   devices?: SimcirDeviceInstance[];
   connectors?: SimcirConnectorDef[];
 }
