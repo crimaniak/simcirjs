@@ -21,255 +21,143 @@
   // unit size
   var unit = $s.unit;
 
-  var createDSOFactory = function() {
+  var colors = [
+    '#ff00cc',
+    '#ffcc00',
+    '#ccff00',
+    '#00ffcc',
+    '#00ccff',
+    '#cc00ff'
+  ];
+  var timeRanges = [10000, 5000, 2000, 1000];
+  var maxTimeRange = timeRanges[0];
 
-    var colors = [
-      '#ff00cc',
-      '#ffcc00',
-      '#ccff00',
-      '#00ffcc',
-      '#00ccff',
-      '#cc00ff'
-    ];
-    var timeRanges = [10000, 5000, 2000, 1000];
-    var maxTimeRange = timeRanges[0];
+  var createProbe = function(color) {
 
-    var createProbe = function(color) {
+    var samples = [];
 
-      var samples = [];
-
-      var model = {
-        valueRange : 1,
-        timeRange : maxTimeRange
-      };
-
-      var $path = $s.createSVGElement('path').
-        css('fill', 'none').
-        css('stroke-width', 1).
-        css('stroke-linejoin', 'bevel').
-        css('stroke', color);
-
-      var setValueRange = function(valueRange) {
-        model.valueRange = valueRange;
-      };
-
-      var setTimeRange = function(timeRange) {
-        model.timeRange = timeRange;
-      };
-
-      var update = function(ts, x, y, width, height) {
-        var d = '';
-        for (var i = samples.length - 1; i >= 0; i -= 1) {
-          var last = i - 1 >= 0 && ts - samples[i - 1].ts > model.timeRange;
-          var val = samples[i].value;
-          if (!last && i > 0 && i + 1 < samples.length &&
-              samples[i - 1].value === val &&
-              samples[i + 1].value === val) {
-            continue;
-          }
-          if (typeof val != 'number') {
-            val = 0;
-          }
-          var sx = x + width - (ts - samples[i].ts) / model.timeRange * width;
-          var sy = y + height - val / model.valueRange * height;
-          d += d == ''? 'M' : 'L';
-          d += sx + ' ' + sy;
-          if (last) {
-            break;
-          }
-        }
-        $path.attr('d', d);
-      };
-
-      var sample = function(ts, value) {
-        samples.push({ts: ts, value: value});
-        while (ts - samples[0].ts > maxTimeRange) {
-          samples.shift();
-        }
-      };
-
-      return {
-        $ui : $path,
-        setValueRange : setValueRange,
-        setTimeRange : setTimeRange,
-        update : update,
-        sample : sample
-      };
+    var model = {
+      valueRange : 1,
+      timeRange : maxTimeRange
     };
 
-    var createPanel = function() {
+    var $path = $s.createSVGElement('path').
+      css('fill', 'none').
+      css('stroke-width', 1).
+      css('stroke-linejoin', 'bevel').
+      css('stroke', color);
 
-      var $lcd = $s.createSVGElement('path').
-        css('stroke', 'none').css('fill', '#ffcc00');
-      var setLCDText = function(text) {
-        $lcd.attr('d', createFontPath(text, 4, 4, 1) );
-      };
-      var $lcdPanel = $s.createSVGElement('g').
-        append($s.createSVGElement('rect').
-          css('stroke', 'none').
-          css('fill', '#000000').
-          attr({x : 0, y : 0, width: unit * 7, height : unit}) ).
-        append($lcd).
-        on('mousedown', function(event) {
-          event.preventDefault();
-          event.stopPropagation();
-          $panel.trigger('timeRangeDown');
-        });
-      $s.transform($lcdPanel, unit * 1.5, 0);
-
-      var $playing = $s.createSVGElement('path').
-        attr('d', 'M' + unit / 4 + ' ' + unit / 4 +
-            'L' + unit / 4 * 3 + ' ' + unit / 2 +
-            'L' + unit / 4 + ' ' + unit / 4 * 3 + 'Z').
-        css('stroke-width', 1);
-      var btnAttr = {x : 0, y : 0, width : unit, height : unit,
-          rx : 1, ry : 1};
-      var $btnRect = $s.createSVGElement('rect').
-        attr(btnAttr).
-        css('stroke', 'none').
-        css('fill', '#999999').
-        css('opacity', 0);
-      var $btn = $s.createSVGElement('g').
-        append($btnRect).
-        append($s.createSVGElement('rect').
-            attr(btnAttr).
-            css('stroke-width', 1).
-            css('stroke', '#666666').
-            css('fill', 'none') ).
-        append($playing).
-        on('mousedown', function(event) {
-          event.preventDefault();
-          event.stopPropagation();
-          $panel.trigger('playDown');
-        });
-
-      var $panel = $s.createSVGElement('g').
-        append($btn).append($lcdPanel);
-
-      return {
-        $ui : $panel,
-        setPlaying : function(playing) {
-          $playing.css('fill', playing? '#00ff00' : '#006600').
-            css('stroke', playing? '#00cc00' : '#003300');
-        },
-        setTimeRange : function(timeRange) {
-          var unit = 'ms';
-          if (timeRange > 5000) {
-            unit = 's';
-            timeRange /= 1000;
-          }
-          setLCDText('TimeRange:' + timeRange + unit);
-        }
-      };
+    var setValueRange = function(valueRange) {
+      model.valueRange = valueRange;
     };
 
-    return function(device) {
+    var setTimeRange = function(timeRange) {
+      model.timeRange = timeRange;
+    };
 
-      var numInputs = Math.max(1,
-          device.deviceDef.numInputs || 4);
-      var scale = 1;
-      var gap = 2;
-
-      for (var i = 0; i < numInputs; i += 1) {
-        device.addInput();
+    var update = function(ts, x, y, width, height) {
+      var d = '';
+      for (var i = samples.length - 1; i >= 0; i -= 1) {
+        var last = i - 1 >= 0 && ts - samples[i - 1].ts > model.timeRange;
+        var val = samples[i].value;
+        if (!last && i > 0 && i + 1 < samples.length &&
+            samples[i - 1].value === val &&
+            samples[i + 1].value === val) {
+          continue;
+        }
+        if (typeof val != 'number') {
+          val = 0;
+        }
+        var sx = x + width - (ts - samples[i].ts) / model.timeRange * width;
+        var sy = y + height - val / model.valueRange * height;
+        d += d == ''? 'M' : 'L';
+        d += sx + ' ' + sy;
+        if (last) {
+          break;
+        }
       }
+      $path.attr('d', d);
+    };
 
-      var state = device.deviceDef.state ||
-        { playing : true, rangeIndex : 0 };
-      device.getState = function() {
-        return state;
-      };
+    var sample = function(ts, value) {
+      samples.push({ts: ts, value: value});
+      while (ts - samples[0].ts > maxTimeRange) {
+        samples.shift();
+      }
+    };
 
-      device.getSize = function() {
-        return { width : unit * 4,
-          height : unit * (numInputs * scale + 2) };
-      };
+    return {
+      $ui : $path,
+      setValueRange : setValueRange,
+      setTimeRange : setTimeRange,
+      update : update,
+      sample : sample
+    };
+  };
 
-      var super_createUI = device.createUI;
-      device.createUI = function() {
-        super_createUI();
+  var createPanel = function() {
 
-        var $display = $s.createSVGElement('g');
-        device.$ui.append($display);
-        $s.transform($display, unit / 2, unit / 2);
+    var $lcd = $s.createSVGElement('path').
+      css('stroke', 'none').css('fill', '#ffcc00');
+    var setLCDText = function(text) {
+      $lcd.attr('d', createFontPath(text, 4, 4, 1) );
+    };
+    var $lcdPanel = $s.createSVGElement('g').
+      append($s.createSVGElement('rect').
+        css('stroke', 'none').
+        css('fill', '#000000').
+        attr({x : 0, y : 0, width: unit * 7, height : unit}) ).
+      append($lcd).
+      on('mousedown', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        $panel.trigger('timeRangeDown');
+      });
+    $s.transform($lcdPanel, unit * 1.5, 0);
 
-        var $rect = $s.createSVGElement('rect').
-          css('stroke', 'none').css('fill', '#000000').
-          attr({x: 0, y: 0, width: unit * 3,
-            height: unit * numInputs * scale });
-        $display.append($rect);
+    var $playing = $s.createSVGElement('path').
+      attr('d', 'M' + unit / 4 + ' ' + unit / 4 +
+          'L' + unit / 4 * 3 + ' ' + unit / 2 +
+          'L' + unit / 4 + ' ' + unit / 4 * 3 + 'Z').
+      css('stroke-width', 1);
+    var btnAttr = {x : 0, y : 0, width : unit, height : unit,
+        rx : 1, ry : 1};
+    var $btnRect = $s.createSVGElement('rect').
+      attr(btnAttr).
+      css('stroke', 'none').
+      css('fill', '#999999').
+      css('opacity', 0);
+    var $btn = $s.createSVGElement('g').
+      append($btnRect).
+      append($s.createSVGElement('rect').
+          attr(btnAttr).
+          css('stroke-width', 1).
+          css('stroke', '#666666').
+          css('fill', 'none') ).
+      append($playing).
+      on('mousedown', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        $panel.trigger('playDown');
+      });
 
-        var probes = [];
-        for (var i = 0; i < device.getInputs().length; i += 1) {
-          var inNode = device.getInputs()[i];
-          $s.transform(inNode.$ui, 0, unit *
-              (0.5 + 0.5 * scale + i * scale) );
-          var probe = createProbe(colors[i % colors.length]);
-          probes.push(probe);
-          $display.append(probe.$ui);
+    var $panel = $s.createSVGElement('g').
+      append($btn).append($lcdPanel);
+
+    return {
+      $ui : $panel,
+      setPlaying : function(playing) {
+        $playing.css('fill', playing? '#00ff00' : '#006600').
+          css('stroke', playing? '#00cc00' : '#003300');
+      },
+      setTimeRange : function(timeRange) {
+        var unit = 'ms';
+        if (timeRange > 5000) {
+          unit = 's';
+          timeRange /= 1000;
         }
-
-        var setTimeRange = function(timeRange) {
-          panel.setTimeRange(timeRange);
-          for (var i = 0; i < probes.length; i += 1) {
-            probes[i].setTimeRange(timeRange);
-          }
-        };
-
-        var panel = createPanel();
-        panel.$ui.on('playDown', function(event){
-            state.playing = !state.playing;
-            panel.setPlaying(state.playing);
-          }).on('timeRangeDown', function(event) {
-            state.rangeIndex = (state.rangeIndex + 1) % timeRanges.length;
-            setTimeRange(timeRanges[state.rangeIndex]);
-          });
-        device.$ui.append(panel.$ui.css('display', 'none') );
-        $s.transform(panel.$ui, unit / 2,
-            unit * numInputs * scale + unit / 4 * 3);
-
-        panel.setPlaying(state.playing);
-        setTimeRange(timeRanges[state.rangeIndex] || timeRanges[0]);
-
-        var alive = false;
-        var render = function(ts) {
-          for (var i = 0; i < device.getInputs().length; i += 1) {
-            probes[i].sample(ts, device.getInputs()[i].getValue() );
-            if (state.playing) {
-              probes[i].update(ts, 0, unit * i * scale + gap,
-                  unit * 15, unit * scale - gap * 2);
-            }
-          }
-          if (alive) {
-            window.requestAnimationFrame(render);
-          }
-        };
-
-        device.$ui.on('deviceAdd', function() {
-
-          device.$ui.children('.simcir-device-body').
-            attr('width', unit * 16);
-          device.$ui.children('.simcir-device-label').
-            attr('x', unit * 8);
-          $rect.attr('width', unit * 15);
-          panel.$ui.css('display', '');
-
-          alive = true;
-          window.requestAnimationFrame(render);
-
-        }).on('deviceRemove', function() {
-          alive = false;
-        });
-
-        device.doc = {
-          params: [
-            {name: 'numInputs', type: 'number',
-              defaultValue: 4,
-              description: 'number of inputs.'}
-          ],
-          code: '{"type":"' + device.deviceDef.type + '","numInputs":4}'
-        };
-      };
+        setLCDText('TimeRange:' + timeRange + unit);
+      }
     };
   };
 
@@ -397,6 +285,119 @@
     };
   }();
 
-  $s.registerDevice('DSO', createDSOFactory() );
+  class DSODevice extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      var dev = this;
+      dev._numInputs = Math.max(1, device.deviceDef.numInputs || 4);
+      dev._scale = 1;
+      dev._gap = 2;
+      for (var i = 0; i < dev._numInputs; i += 1) {
+        dev.addInput();
+      }
+      dev._state = device.deviceDef.state ||
+        { playing : true, rangeIndex : 0 };
+    }
+
+    getState() {
+      return this._state;
+    }
+
+    getSize() {
+      return { width : unit * 4,
+        height : unit * (this._numInputs * this._scale + 2) };
+    }
+
+    createUI() {
+      var dev = this;
+      var numInputs = dev._numInputs;
+      var scale = dev._scale;
+      var gap = dev._gap;
+      super.createUI();
+
+      var $display = $s.createSVGElement('g');
+      dev.$ui.append($display);
+      $s.transform($display, unit / 2, unit / 2);
+
+      var $rect = $s.createSVGElement('rect').
+        css('stroke', 'none').css('fill', '#000000').
+        attr({x: 0, y: 0, width: unit * 3,
+          height: unit * numInputs * scale });
+      $display.append($rect);
+
+      var probes = [];
+      for (var i = 0; i < dev.getInputs().length; i += 1) {
+        var inNode = dev.getInputs()[i];
+        $s.transform(inNode.$ui, 0, unit *
+            (0.5 + 0.5 * scale + i * scale) );
+        var probe = createProbe(colors[i % colors.length]);
+        probes.push(probe);
+        $display.append(probe.$ui);
+      }
+
+      var setTimeRange = function(timeRange) {
+        panel.setTimeRange(timeRange);
+        for (var i = 0; i < probes.length; i += 1) {
+          probes[i].setTimeRange(timeRange);
+        }
+      };
+
+      var panel = createPanel();
+      panel.$ui.on('playDown', function(event){
+          dev._state.playing = !dev._state.playing;
+          panel.setPlaying(dev._state.playing);
+        }).on('timeRangeDown', function(event) {
+          dev._state.rangeIndex = (dev._state.rangeIndex + 1) % timeRanges.length;
+          setTimeRange(timeRanges[dev._state.rangeIndex]);
+        });
+      dev.$ui.append(panel.$ui.css('display', 'none') );
+      $s.transform(panel.$ui, unit / 2,
+          unit * numInputs * scale + unit / 4 * 3);
+
+      panel.setPlaying(dev._state.playing);
+      setTimeRange(timeRanges[dev._state.rangeIndex] || timeRanges[0]);
+
+      var alive = false;
+      var render = function(ts) {
+        for (var i = 0; i < dev.getInputs().length; i += 1) {
+          probes[i].sample(ts, dev.getInputs()[i].getValue() );
+          if (dev._state.playing) {
+            probes[i].update(ts, 0, unit * i * scale + gap,
+                unit * 15, unit * scale - gap * 2);
+          }
+        }
+        if (alive) {
+          window.requestAnimationFrame(render);
+        }
+      };
+
+      dev.$ui.on('deviceAdd', function() {
+
+        dev.$ui.children('.simcir-device-body').
+          attr('width', unit * 16);
+        dev.$ui.children('.simcir-device-label').
+          attr('x', unit * 8);
+        $rect.attr('width', unit * 15);
+        panel.$ui.css('display', '');
+
+        alive = true;
+        window.requestAnimationFrame(render);
+
+      }).on('deviceRemove', function() {
+        alive = false;
+      });
+
+      dev.doc = {
+        params: [
+          {name: 'numInputs', type: 'number',
+            defaultValue: 4,
+            description: 'number of inputs.'}
+        ],
+        code: '{"type":"' + dev.deviceDef.type + '","numInputs":4}'
+      };
+    }
+  }
+
+  $s.registerDevice('DSO', DSODevice);
 
 }(simcir);
