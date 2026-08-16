@@ -65,12 +65,14 @@ simcir.$ = function() {
 
       // remove all listeners
       var cacheId = elm[cacheIdKey];
-      var listenerMap = cache[cacheId].listenerMap;
-      Object.keys(listenerMap).forEach(function(type) {
-        listenerMap[type].forEach(function(listener) {
-          elm.removeEventListener(type, listener);
+      var dispatcher = cache[cacheId].dispatcher;
+      if (dispatcher != null) {
+        Object.keys(dispatcher.listenerMap).forEach(function(type) {
+          dispatcher.listenerMap[type].forEach(function(listener) {
+            elm.removeEventListener(type, listener);
+          });
         });
-      });
+      }
 
       // delete refs
       delete elm[cacheIdKey];
@@ -88,44 +90,58 @@ simcir.$ = function() {
     return getCache(elm).data;
   };
 
-  var getListeners = function(elm, type) {
-    if (!getCache(elm).listenerMap) {
-      getCache(elm).listenerMap = {}; }
-    if (!getCache(elm).listenerMap[type]) {
-      getCache(elm).listenerMap[type] = []; }
-    return getCache(elm).listenerMap[type];
-  };
+  class EventDispatcher {
+    constructor() {
+      this.listenerMap = {};
+    }
 
-  // add / remove event listener.
-  var addEventListener = function(elm, type, listener, add) {
-    var listeners = getListeners(elm, type);
-    var newListeners = listeners.filter(function(l) { return l != listener; });
-    if (add) { newListeners.push(listener); }
-    getCache(elm).listenerMap[type] = newListeners;
-    return true;
-  };
+    addEventListener(type, listener, add) {
+      var listeners = this.listenerMap[type] != null?
+          this.listenerMap[type] : [];
+      var newListeners = listeners.filter(function(l) {
+        return l != listener;
+      });
+      if (add) { newListeners.push(listener); }
+      this.listenerMap[type] = newListeners;
+      return true;
+    }
 
-  var CustomEvent = {
+    removeEventListener(type, listener) {
+      return this.addEventListener(type, listener, false);
+    }
+  }
+
+  EventDispatcher.CustomEvent = {
     preventDefault : function() { this._pD = true; },
     stopPropagation : function() { this._sP = true; },
     stopImmediatePropagation : function() { this._sIp = true; }
   };
 
-  var trigger = function(elm, type, data) {
+  EventDispatcher.trigger = function(elm, type, data) {
     var event = { type : type, target : elm, currentTarget : null,
-        _pD : false, _sP : false, _sIp : false, __proto__ : CustomEvent };
+        _pD : false, _sP : false, _sIp : false,
+        __proto__ : EventDispatcher.CustomEvent };
     for (var e = elm; e != null; e = e.parentNode) {
       if (!hasCache(e) ) { continue; }
-      if (!getCache(e).listenerMap) { continue; }
-      if (!getCache(e).listenerMap[type]) { continue; }
+      var dispatcher = getCache(e).dispatcher;
+      if (dispatcher == null) { continue; }
+      var listeners = dispatcher.listenerMap[type];
+      if (listeners == null) { continue; }
       event.currentTarget = e;
-      var listeners = getCache(e).listenerMap[type];
       listeners.some(function(listener) {
         listener.call(e, event, data);
         return event._sIp;
       });
       if (event._sP) { return; }
     }
+  };
+
+  var getDispatcher = function(elm) {
+    var cache = getCache(elm);
+    if (cache.dispatcher == null) {
+      cache.dispatcher = new EventDispatcher();
+    }
+    return cache.dispatcher;
   };
 
   var data = function(elm, kv) {
@@ -349,7 +365,7 @@ simcir.$ = function() {
       var types = type.split(/\s+/g);
       types.forEach(function(t) {
         this.addEventListener(t, listener);
-        addEventListener(this, t, listener, true);
+        getDispatcher(this).addEventListener(t, listener, true);
       }, this);
       return this;
     },
@@ -357,12 +373,12 @@ simcir.$ = function() {
       var types = type.split(/\s+/g);
       types.forEach(function(t) {
         this.removeEventListener(t, listener);
-        addEventListener(this, t, listener, false);
+        getDispatcher(this).removeEventListener(t, listener);
       }, this);
       return this;
     },
     trigger : function(type, data) {
-      trigger(this, type, data);
+      EventDispatcher.trigger(this, type, data);
       return this;
     },
     offset : function() {
@@ -787,19 +803,21 @@ simcir.$ = function() {
     if (!headless) {
       $node.attr('class', 'simcir-node');
     }
-    var node = createNodeController({
+    var spec = {
       $ui: $node, type: type, label: label,
       description: description, headless: headless,
       portRadius: portRadius != null? portRadius : 4,
       rectanglePadding: rectanglePadding != null?
-          rectanglePadding : 0});
+          rectanglePadding : 0};
+    var node;
     if (type == 'in') {
-      controller($node, createInputNodeController(node) );
+      node = new InputNodeController(spec);
     } else if (type == 'out') {
-      controller($node, createOutputNodeController(node) );
+      node = new OutputNodeController(spec);
     } else {
       throw 'unknown type:' + type;
     }
+    controller($node, node);
     return $node;
   };
 
@@ -808,21 +826,36 @@ simcir.$ = function() {
       $o.closest('.simcir-toolbox').length == 0;
   };
 
-  var createNodeController = function(node) {
-    var _value = null;
-    var setValue = function(value, force) {
-      if (_value === value && !force) {
+  class NodeController {
+    constructor(node) {
+      this.$ui = node.$ui;
+      this.type = node.type;
+      this.label = node.label;
+      this.description = node.description;
+      this.headless = node.headless;
+      this.portRadius = node.portRadius != null? node.portRadius : 4;
+      this.rectanglePadding = node.rectanglePadding != null?
+          node.rectanglePadding : 0;
+      this._value = null;
+      if (!this.headless) {
+        this._createUI();
+      }
+    }
+
+    setValue(value, force) {
+      if (this._value === value && !force) {
         return;
       }
-      _value = value;
-      eventQueue.postEvent({target: node.$ui, type: 'nodeValueChange'});
-    };
-    var getValue = function() {
-      return _value;
-    };
+      this._value = value;
+      eventQueue.postEvent({target: this.$ui, type: 'nodeValueChange'});
+    }
 
-    if (!node.headless) {
+    getValue() {
+      return this._value;
+    }
 
+    _createUI() {
+      var node = this;
       node.$ui.attr('class', 'simcir-node simcir-node-type-' + node.type);
 
       var $circle = createSVGElement('circle').
@@ -868,69 +901,67 @@ simcir.$ = function() {
         }
       }
       node.$ui.on('nodeValueChange', function(event) {
-        if (_value != null) {
+        if (node.getValue() != null) {
           node.$ui.addClass('simcir-node-hot');
         } else {
           node.$ui.removeClass('simcir-node-hot');
         }
       });
     }
+  }
 
-    return $.extend(node, {
-      setValue: setValue,
-      getValue: getValue
-    });
-  };
+  class InputNodeController extends NodeController {
+    constructor(node) {
+      super(node);
+      this._output = null;
+    }
 
-  var createInputNodeController = function(node) {
-    var output = null;
-    var setOutput = function(outNode) {
-      output = outNode;
-    };
-    var getOutput = function() {
-      return output;
-    };
-    return $.extend(node, {
-      setOutput: setOutput,
-      getOutput: getOutput
-    });
-  };
+    setOutput(outNode) {
+      this._output = outNode;
+    }
 
-  var createOutputNodeController = function(node) {
-    var inputs = [];
-    var super_setValue = node.setValue;
-    var setValue = function(value) {
-      super_setValue(value);
-      inputs.forEach(function(inNode) { inNode.setValue(value); });
-    };
-    var connectTo = function(inNode) {
+    getOutput() {
+      return this._output;
+    }
+  }
+
+  class OutputNodeController extends NodeController {
+    constructor(node) {
+      super(node);
+      this._inputs = [];
+    }
+
+    setValue(value) {
+      super.setValue(value);
+      this._inputs.forEach(function(inNode) {
+        inNode.setValue(value);
+      });
+    }
+
+    connectTo(inNode) {
       if (inNode.getOutput() != null) {
         inNode.getOutput().disconnectFrom(inNode);
       }
-      inNode.setOutput(node);
-      inputs.push(inNode);
-      inNode.setValue(node.getValue(), true);
-    };
-    var disconnectFrom = function(inNode) {
-      if (inNode.getOutput() != node) {
+      inNode.setOutput(this);
+      this._inputs.push(inNode);
+      inNode.setValue(this.getValue(), true);
+    }
+
+    disconnectFrom(inNode) {
+      if (inNode.getOutput() != this) {
         throw 'not connected.';
       }
       inNode.setOutput(null);
       inNode.setValue(null, true);
-      inputs = $.grep(inputs, function(v) {
+      this._inputs = this._inputs.filter(function(v) {
         return v != inNode;
       });
-    };
-    var getInputs = function() {
-      return inputs;
-    };
-    return $.extend(node, {
-      setValue: setValue,
-      getInputs: getInputs,
-      connectTo: connectTo,
-      disconnectFrom: disconnectFrom
-    });
-  };
+    }
+
+    getInputs() {
+      return this._inputs;
+    }
+  }
 
   var createDevice = function(deviceDef, headless, scope, defaults) {
     headless = headless || false;
@@ -2509,7 +2540,7 @@ simcir.$ = function() {
 
   var connectNode = function(in1, out1) {
     // set input value to output without inputValueChange event.
-    var in1_super_setValue = in1.setValue;
+    var in1_super_setValue = in1.setValue.bind(in1);
     in1.setValue = function(value, force) {
       var changed = in1.getValue() !== value;
       in1_super_setValue(value, force);
@@ -2588,12 +2619,12 @@ simcir.$ = function() {
 
         updatePoint();
 
-        var super_connectTo = out1.connectTo;
+        var super_connectTo = out1.connectTo.bind(out1);
         out1.connectTo = function(inNode) {
           super_connectTo(inNode);
           updatePoint();
         };
-        var super_disconnectFrom = out1.disconnectFrom;
+        var super_disconnectFrom = out1.disconnectFrom.bind(out1);
         out1.disconnectFrom = function(inNode) {
           super_disconnectFrom(inNode);
           updatePoint();
