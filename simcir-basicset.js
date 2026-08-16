@@ -154,90 +154,100 @@
   var isHot = function(v) { return v != null; };
   var intValue = function(v) { return isHot(v)? 1 : 0; };
 
-  var createSwitchFactory = function(type) {
-    return function(device) {
-      var in1 = device.addInput();
-      var out1 = device.addOutput();
-      var on = (type == 'PushOff');
-
-      if (type == 'Toggle' && device.deviceDef.state) {
-        on = device.deviceDef.state.on;
+  class Switch extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      var dev = this;
+      dev._type = dev.deviceDef.type;
+      dev._in1 = dev.addInput();
+      dev._out1 = dev.addOutput();
+      dev._on = (dev._type == 'PushOff');
+      if (dev._type == 'Toggle' && dev.deviceDef.state) {
+        dev._on = dev.deviceDef.state.on;
       }
-      device.getState = function() {
-        return { on : on };
-      };
 
-      device.$ui.on('inputValueChange', function() {
-        if (on) {
-          out1.setValue(in1.getValue() );
+      dev.$ui.on('inputValueChange', function() {
+        if (dev._on) {
+          dev._out1.setValue(dev._in1.getValue() );
         }
       });
       var updateOutput = function() {
-        out1.setValue(on? in1.getValue() : null);
+        dev._out1.setValue(dev._on? dev._in1.getValue() : null);
       };
       updateOutput();
+    }
 
-      var super_createUI = device.createUI.bind(device);
-      device.createUI = function() {
-        super_createUI();
-        var size = device.getSize();
-        var $button = $s.createSVGElement('rect').
-          attr({x: size.width / 4, y: size.height / 4,
-            width: size.width / 2, height: size.height / 2,
-            rx: 2, ry: 2});
-        $button.addClass('simcir-basicset-switch-button');
-        if (type == 'Toggle' && on) {
+    getState() {
+      return { on: this._on };
+    }
+
+    createUI() {
+      var dev = this;
+      var type = dev._type;
+      var on = dev._on;
+      super.createUI();
+      var size = dev.getSize();
+      var $button = $s.createSVGElement('rect').
+        attr({x: size.width / 4, y: size.height / 4,
+          width: size.width / 2, height: size.height / 2,
+          rx: 2, ry: 2});
+      $button.addClass('simcir-basicset-switch-button');
+      if (type == 'Toggle' && on) {
+        $button.addClass('simcir-basicset-switch-button-pressed');
+      }
+      dev.$ui.append($button);
+      var button_mouseDownHandler = function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (type == 'PushOn') {
+          on = true;
+          $button.addClass('simcir-basicset-switch-button-pressed');
+        } else if (type == 'PushOff') {
+          on = false;
+          $button.addClass('simcir-basicset-switch-button-pressed');
+        } else if (type == 'Toggle') {
+          on = !on;
           $button.addClass('simcir-basicset-switch-button-pressed');
         }
-        device.$ui.append($button);
-        var button_mouseDownHandler = function(event) {
-          event.preventDefault();
-          event.stopPropagation();
-          if (type == 'PushOn') {
-            on = true;
-            $button.addClass('simcir-basicset-switch-button-pressed');
-          } else if (type == 'PushOff') {
-            on = false;
-            $button.addClass('simcir-basicset-switch-button-pressed');
-          } else if (type == 'Toggle') {
-            on = !on;
-            $button.addClass('simcir-basicset-switch-button-pressed');
-          }
-          updateOutput();
-          $(document).on('mouseup', button_mouseUpHandler);
-          $(document).on('touchend', button_mouseUpHandler);
-        };
-        var button_mouseUpHandler = function(event) {
-          if (type == 'PushOn') {
-            on = false;
-            $button.removeClass('simcir-basicset-switch-button-pressed');
-          } else if (type == 'PushOff') {
-            on = true;
-            $button.removeClass('simcir-basicset-switch-button-pressed');
-          } else if (type == 'Toggle') {
-            // keep state
-            if (!on) {
-              $button.removeClass('simcir-basicset-switch-button-pressed');
-            }
-          }
-          updateOutput();
-          $(document).off('mouseup', button_mouseUpHandler);
-          $(document).off('touchend', button_mouseUpHandler);
-        };
-        device.$ui.on('deviceAdd', function() {
-          $s.enableEvents($button, true);
-          $button.on('mousedown', button_mouseDownHandler);
-          $button.on('touchstart', button_mouseDownHandler);
-        });
-        device.$ui.on('deviceRemove', function() {
-          $s.enableEvents($button, false);
-          $button.off('mousedown', button_mouseDownHandler);
-          $button.off('touchstart', button_mouseDownHandler);
-        });
-        device.$ui.addClass('simcir-basicset-switch');
+        dev._on = on;
+        updateOutput();
+        $(document).on('mouseup', button_mouseUpHandler);
+        $(document).on('touchend', button_mouseUpHandler);
       };
-    };
-  };
+      var button_mouseUpHandler = function(event) {
+        if (type == 'PushOn') {
+          on = false;
+          $button.removeClass('simcir-basicset-switch-button-pressed');
+        } else if (type == 'PushOff') {
+          on = true;
+          $button.removeClass('simcir-basicset-switch-button-pressed');
+        } else if (type == 'Toggle') {
+          // keep state
+          if (!on) {
+            $button.removeClass('simcir-basicset-switch-button-pressed');
+          }
+        }
+        dev._on = on;
+        updateOutput();
+        $(document).off('mouseup', button_mouseUpHandler);
+        $(document).off('touchend', button_mouseUpHandler);
+      };
+      var updateOutput = function() {
+        dev._out1.setValue(on? dev._in1.getValue() : null);
+      };
+      dev.$ui.on('deviceAdd', function() {
+        $s.enableEvents($button, true);
+        $button.on('mousedown', button_mouseDownHandler);
+        $button.on('touchstart', button_mouseDownHandler);
+      });
+      dev.$ui.on('deviceRemove', function() {
+        $s.enableEvents($button, false);
+        $button.off('mousedown', button_mouseDownHandler);
+        $button.off('touchstart', button_mouseDownHandler);
+      });
+      dev.$ui.addClass('simcir-basicset-switch');
+    }
+  }
 
   // per-type behavior for logic gates
   var gateDefs = {
@@ -730,9 +740,9 @@
   });
 
   // register switches
-  $s.registerDevice('PushOff', createSwitchFactory('PushOff') );
-  $s.registerDevice('PushOn', createSwitchFactory('PushOn') );
-  $s.registerDevice('Toggle', createSwitchFactory('Toggle') );
+  $s.registerDevice('PushOff', Switch);
+  $s.registerDevice('PushOn', Switch);
+  $s.registerDevice('Toggle', Switch);
 
   // register logic gates
   $s.registerDevice('BUF', LogicGate);

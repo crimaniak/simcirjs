@@ -208,6 +208,36 @@ test('a Joint passes values through and exposes its direction state', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Switches
+// ---------------------------------------------------------------------------
+test('a Toggle switch passes its input through only when on', () => {
+  const { devices } = createWorkspace(baseData(
+    [
+      { type: 'Toggle', id: 'tgOn', x: 0, y: 0, state: { on: true } },
+      { type: 'Toggle', id: 'tgOff', x: 0, y: 40 },
+      { type: 'PushOff', id: 'po0', x: 0, y: 80 },
+      { type: 'PushOn', id: 'pn0', x: 0, y: 120 },
+      { type: 'In', id: 'in0', x: 0, y: 160 },
+    ],
+    [
+      { from: 'in0.out0', to: 'tgOn.in0' },
+      { from: 'in0.out0', to: 'tgOff.in0' },
+    ],
+  ));
+  const { harness } = loadSimcir();
+  devices.in0.getInputs()[0].setValue(HI);
+  harness.settle();
+  assert.equal(devices.tgOn.getOutputs()[0].getValue(), HI);
+  assert.equal(devices.tgOff.getOutputs()[0].getValue(), null);
+
+  // default and persisted states
+  assert.equal(devices.tgOff.getState().on, false);
+  assert.equal(devices.tgOn.getState().on, true);
+  assert.equal(devices.po0.getState().on, true);
+  assert.equal(devices.pn0.getState().on, false);
+});
+
+// ---------------------------------------------------------------------------
 // Logic gates
 // ---------------------------------------------------------------------------
 const GATES = {
