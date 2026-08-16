@@ -239,50 +239,71 @@
     };
   };
 
-  var createLogicGateFactory = function(op, out, draw) {
-    return function(device) {
-      var numInputs = (op == null)? 1 :
-        Math.max(2, device.deviceDef.numInputs || 2);
-      device.halfPitch = numInputs > 2;
+  // per-type behavior for logic gates
+  var gateDefs = {
+    BUF:  {op: null, out: BUF,  draw: drawBUF },
+    NOT:  {op: null, out: NOT,  draw: drawNOT },
+    AND:  {op: AND,  out: BUF,  draw: drawAND },
+    NAND: {op: AND,  out: NOT,  draw: drawNAND },
+    OR:   {op: OR,   out: BUF,  draw: drawOR },
+    NOR:  {op: OR,   out: NOT,  draw: drawNOR },
+    EOR:  {op: EOR,  out: BUF,  draw: drawEOR },
+    ENOR: {op: EOR,  out: NOT,  draw: drawENOR },
+    XOR:  {op: EOR,  out: BUF,  draw: drawEOR },
+    XNOR: {op: EOR,  out: NOT,  draw: drawENOR }
+  };
+
+  class LogicGate extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      var dev = this;
+      var def = gateDefs[dev.deviceDef.type];
+      dev._op = def.op;
+      dev._out = def.out;
+      dev._draw = def.draw;
+      var numInputs = (dev._op == null)? 1 :
+        Math.max(2, dev.deviceDef.numInputs || 2);
+      dev.halfPitch = numInputs > 2;
       for (var i = 0; i < numInputs; i += 1) {
-        device.addInput();
+        dev.addInput();
       }
-      device.addOutput();
-      var inputs = device.getInputs();
-      var outputs = device.getOutputs();
-      device.$ui.on('inputValueChange', function() {
+      dev.addOutput();
+      var inputs = dev.getInputs();
+      var outputs = dev.getOutputs();
+      dev.$ui.on('inputValueChange', function() {
         var b = intValue(inputs[0].getValue() );
-        if (op != null) {
+        if (dev._op != null) {
           b = inputs.slice(1).reduce(function(b, input) {
-            return op(b, intValue(input.getValue() ) );
+            return dev._op(b, intValue(input.getValue() ) );
           }, b);
         }
-        b = out(b);
+        b = dev._out(b);
         outputs[0].setValue( (b == 1)? 1 : null);
       });
-      var super_createUI = device.createUI.bind(device);
-      device.createUI = function() {
-        super_createUI();
-        var size = device.getSize();
-        var g = $s.graphics(device.$ui);
-        g.attr['class'] = 'simcir-basicset-symbol';
-        draw(g, 
-          (size.width - unit) / 2,
-          (size.height - unit) / 2,
-          unit, unit);
-        if (op != null) {
-          device.doc = {
-            params: [
-              {name: 'numInputs', type: 'number',
-                defaultValue: 2,
-                description: 'number of inputs.'}
-            ],
-            code: '{"type":"' + device.deviceDef.type + '","numInputs":2}'
-          };
-        }
-      };
-    };
-  };
+    }
+
+    createUI() {
+      var dev = this;
+      super.createUI();
+      var size = dev.getSize();
+      var g = $s.graphics(dev.$ui);
+      g.attr['class'] = 'simcir-basicset-symbol';
+      dev._draw(g,
+        (size.width - unit) / 2,
+        (size.height - unit) / 2,
+        unit, unit);
+      if (dev._op != null) {
+        dev.doc = {
+          params: [
+            {name: 'numInputs', type: 'number',
+              defaultValue: 2,
+              description: 'number of inputs.'}
+          ],
+          code: '{"type":"' + dev.deviceDef.type + '","numInputs":2}'
+        };
+      }
+    }
+  }
 
   /*
   var segBase = function() {
@@ -714,17 +735,17 @@
   $s.registerDevice('Toggle', createSwitchFactory('Toggle') );
 
   // register logic gates
-  $s.registerDevice('BUF', createLogicGateFactory(null, BUF, drawBUF) );
-  $s.registerDevice('NOT', createLogicGateFactory(null, NOT, drawNOT) );
-  $s.registerDevice('AND', createLogicGateFactory(AND, BUF, drawAND) );
-  $s.registerDevice('NAND', createLogicGateFactory(AND, NOT, drawNAND) );
-  $s.registerDevice('OR', createLogicGateFactory(OR, BUF, drawOR) );
-  $s.registerDevice('NOR', createLogicGateFactory(OR, NOT, drawNOR) );
-  $s.registerDevice('XOR', createLogicGateFactory(EOR, BUF, drawEOR) );
-  $s.registerDevice('XNOR', createLogicGateFactory(EOR, NOT, drawENOR) );
+  $s.registerDevice('BUF', LogicGate);
+  $s.registerDevice('NOT', LogicGate);
+  $s.registerDevice('AND', LogicGate);
+  $s.registerDevice('NAND', LogicGate);
+  $s.registerDevice('OR', LogicGate);
+  $s.registerDevice('NOR', LogicGate);
+  $s.registerDevice('XOR', LogicGate);
+  $s.registerDevice('XNOR', LogicGate);
   // deprecated. not displayed in the default toolbox.
-  $s.registerDevice('EOR', createLogicGateFactory(EOR, BUF, drawEOR), true);
-  $s.registerDevice('ENOR', createLogicGateFactory(EOR, NOT, drawENOR), true);
+  $s.registerDevice('EOR', LogicGate, true);
+  $s.registerDevice('ENOR', LogicGate, true);
 
   // register Oscillator
   $s.registerDevice('OSC', function(device) {
