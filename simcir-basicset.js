@@ -748,37 +748,44 @@
   $s.registerDevice('ENOR', LogicGate, true);
 
   // register Oscillator
-  $s.registerDevice('OSC', function(device) {
-    var freq = device.deviceDef.freq || 10;
-    var delay = ~~(500 / freq);
-    var out1 = device.addOutput();
-    var timerId = null;
-    var on = false;
-    device.$ui.on('deviceAdd', function() {
-      timerId = window.setInterval(function() {
-        out1.setValue(on? onValue : offValue);
-        on = !on;
-      }, delay);
-    });
-    device.$ui.on('deviceRemove', function() {
-      if (timerId != null) {
-        window.clearInterval(timerId);
-        timerId = null;
-      }
-    });
-    var super_createUI = device.createUI.bind(device);
-    device.createUI = function() {
-      super_createUI();
-      device.$ui.addClass('simcir-basicset-osc');
-      device.doc = {
+  class Oscillator extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      var dev = this;
+      var freq = dev.deviceDef.freq || 10;
+      var delay = ~~(500 / freq);
+      var out1 = dev.addOutput();
+      dev._timerId = null;
+      dev._on = false;
+      dev.$ui.on('deviceAdd', function() {
+        dev._timerId = window.setInterval(function() {
+          out1.setValue(dev._on? onValue : offValue);
+          dev._on = !dev._on;
+        }, delay);
+      });
+      dev.$ui.on('deviceRemove', function() {
+        if (dev._timerId != null) {
+          window.clearInterval(dev._timerId);
+          dev._timerId = null;
+        }
+      });
+    }
+
+    createUI() {
+      var dev = this;
+      super.createUI();
+      dev.$ui.addClass('simcir-basicset-osc');
+      dev.doc = {
         params: [
           {name: 'freq', type: 'number', defaultValue: '10',
             description: 'frequency of an oscillator.'}
         ],
-        code: '{"type":"' + device.deviceDef.type + '","freq":10}'
+        code: '{"type":"' + dev.deviceDef.type + '","freq":10}'
       };
-    };
-  });
+    }
+  }
+
+  $s.registerDevice('OSC', Oscillator);
 
   // register LED seg
   $s.registerDevice('7seg', createLEDSegFactory(_7Seg) );
