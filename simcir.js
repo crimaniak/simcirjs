@@ -751,40 +751,46 @@ simcir.$ = function() {
     };
   }();
 
-  var eventQueue = function() {
-    var delay = 50; // ms
-    var limit = 40; // ms
-    var _queue = null;
-    var postEvent = function(event) {
-      if (_queue == null) {
-        _queue = [];
+  class EventQueue {
+    constructor() {
+      this._delay = 50; // ms
+      this._limit = 40; // ms
+      this._queue = null;
+      this._timerHandler = this._timerHandler.bind(this);
+      this._timerHandler();
+    }
+
+    postEvent(event) {
+      if (this._queue == null) {
+        this._queue = [];
       }
-      _queue.push(event);
-    };
-    var dispatchEvent = function() {
-      var queue = _queue;
-      _queue = null;
+      this._queue.push(event);
+    }
+
+    _dispatchEvent() {
+      var queue = this._queue;
+      this._queue = null;
       while (queue.length > 0) {
         var e = queue.shift();
         e.target.trigger(e.type);
       }
-    };
-    var getTime = function() {
+    }
+
+    _getTime() {
       return new Date().getTime();
-    };
-    var timerHandler = function() {
-      var start = getTime();
-      while (_queue != null && getTime() - start < limit) {
-        dispatchEvent();
+    }
+
+    _timerHandler() {
+      var start = this._getTime();
+      while (this._queue != null && this._getTime() - start < this._limit) {
+        this._dispatchEvent();
       }
-      window.setTimeout(timerHandler, 
-        Math.max(delay - limit, delay - (getTime() - start) ) );
-    };
-    timerHandler();
-    return {
-      postEvent: postEvent
-    };
-  }();
+      window.setTimeout(this._timerHandler,
+        Math.max(this._delay - this._limit, this._delay - (this._getTime() - start)));
+    }
+  }
+
+  var eventQueue = new EventQueue();
 
   var unit = 16;
   var fontSize = 12;
