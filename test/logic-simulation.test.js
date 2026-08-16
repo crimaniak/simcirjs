@@ -179,6 +179,34 @@ test('disconnecting stops propagation and reconnecting resumes it', () => {
   assert.equal(outNode.getValue(), HI, 'reconnected node follows again');
 });
 
+test('a Joint passes values through and exposes its direction state', () => {
+  const { devices } = createWorkspace(baseData(
+    [
+      { type: 'Joint', id: 'j0', x: 0, y: 0 },
+      { type: 'In', id: 'in0', x: 0, y: 40 },
+      { type: 'Out', id: 'out0', x: 80, y: 40 },
+    ],
+    [
+      { from: 'in0.out0', to: 'j0.in0' },
+      { from: 'j0.out0', to: 'out0.in0' },
+    ],
+  ));
+  const { harness } = loadSimcir();
+  const joint = devices.j0;
+
+  assert.equal(joint.getState().direction, 0);
+  assert.equal(joint.getSize().width, 16);
+  assert.equal(joint.getSize().height, 16);
+
+  devices.in0.getInputs()[0].setValue(HI);
+  harness.settle();
+  assert.equal(devices.out0.getInputs()[0].getValue(), HI);
+
+  devices.in0.getInputs()[0].setValue(LO);
+  harness.settle();
+  assert.equal(devices.out0.getInputs()[0].getValue(), LO);
+});
+
 // ---------------------------------------------------------------------------
 // Logic gates
 // ---------------------------------------------------------------------------

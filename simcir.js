@@ -970,16 +970,22 @@ simcir.$ = function() {
     if (!headless) {
       $dev.attr('class', 'simcir-device');
     }
-    var devCtrl = new DeviceController(
-        {$ui: $dev, deviceDef: deviceDef,
-          headless: headless, scope: scope, doc: null,
-          defaults: defaults || null});
+    var params = {$ui: $dev, deviceDef: deviceDef,
+      headless: headless, scope: scope, doc: null,
+      defaults: defaults || null};
+    var factory = factories[deviceDef.type];
+    var devCtrl;
+    if (factory != null && factory.prototype instanceof DeviceController) {
+      // class-based device factory
+      devCtrl = new factory(params);
+    } else {
+      devCtrl = new DeviceController(params);
+      if (factory) {
+        factory(devCtrl);
+      }
+    }
     controller($dev, devCtrl);
     devCtrl.id = devCtrl.id || 'dev' + (++deviceIdCounter);
-    var factory = factories[deviceDef.type];
-    if (factory) {
-      factory(devCtrl);
-    }
     if (!headless) {
       devCtrl.createUI();
     }
@@ -2532,6 +2538,7 @@ simcir.$ = function() {
     enableEvents: enableEvents,
     graphics: graphics,
     controller: controller,
+    DeviceController: DeviceController,
     unit: unit
   });
 }(simcir);
@@ -2560,198 +2567,204 @@ simcir.$ = function() {
     };
   };
 
-  var createPortFactory = function(type) {
-    return function(device) {
-      var in1 = device.addInput();
-      var out1 = device.addOutput();
+  // device with an input port and an output port wired through.
+  class PortDevice extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      this.nodeType = device.deviceDef.type.toLowerCase();
+      var in1 = this.addInput();
+      var out1 = this.addOutput();
       connectNode(in1, out1);
-      var super_createUI = device.createUI.bind(device);
-      device.createUI = function() {
-        super_createUI();
-        var size = device.getSize();
-        var cx = size.width / 2;
-        var cy = size.height / 2;
-        device.$ui.append($s.createSVGElement('circle').
-          attr({cx: cx, cy: cy, r: unit / 2}).
-          attr('class', 'simcir-port simcir-node-type-' + type) );
-        device.$ui.append($s.createSVGElement('circle').
-          attr({cx: cx, cy: cy, r: unit / 4}).
-          attr('class', 'simcir-port-hole') );
+    }
+
+    createUI() {
+      super.createUI();
+      var size = this.getSize();
+      var cx = size.width / 2;
+      var cy = size.height / 2;
+      this.$ui.append($s.createSVGElement('circle').
+        attr({cx: cx, cy: cy, r: unit / 2}).
+        attr('class', 'simcir-port simcir-node-type-' + this.nodeType) );
+      this.$ui.append($s.createSVGElement('circle').
+        attr({cx: cx, cy: cy, r: unit / 4}).
+        attr('class', 'simcir-port-hole') );
+    }
+  }
+
+  var JointDirection = { WE : 0, NS : 1, EW : 2, SN : 3 };
+  var maxFadeCount = 16;
+  var fadeTimeout = 100;
+
+  // joint that connects wires and can change direction.
+  class JointDevice extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      this._in1 = this.addInput();
+      this._out1 = this.addOutput();
+      connectNode(this._in1, this._out1);
+      this._state = device.deviceDef.state || { direction : JointDirection.WE };
+    }
+
+    getState() {
+      return this._state;
+    }
+
+    getSize() {
+      return { width : unit, height : unit };
+    }
+
+    createUI() {
+      super.createUI();
+
+      var dev = this;
+      var in1 = dev._in1;
+      var out1 = dev._out1;
+      var state = dev._state;
+
+      var $label = dev.$ui.children('.simcir-device-label');
+      $label.attr('y', $label.attr('y') - unit / 4);
+
+      var $point = $s.createSVGElement('circle').
+        css('pointer-events', 'none').css('opacity', 0).attr('r', 2).
+        addClass('simcir-connector').addClass('simcir-joint-point');
+      dev.$ui.append($point);
+
+      var $path = $s.createSVGElement('path').
+        css('pointer-events', 'none').css('opacity', 0).
+        addClass('simcir-connector');
+      dev.$ui.append($path);
+
+      var $title = $s.createSVGElement('title').
+        text('Double-Click to change a direction.');
+
+      var updatePoint = function() {
+        $point.css('display', out1.getInputs().length > 1? '' : 'none');
       };
-    };
-  };
 
-  var createJointFactory = function() {
+      updatePoint();
 
-    var maxFadeCount = 16;
-    var fadeTimeout = 100;
-
-    var Direction = { WE : 0, NS : 1, EW : 2, SN : 3 };
-
-    return function(device) {
-
-      var in1 = device.addInput();
-      var out1 = device.addOutput();
-      connectNode(in1, out1);
-
-      var state = device.deviceDef.state || { direction : Direction.WE };
-      device.getState = function() {
-        return state;
-      };
-
-      device.getSize = function() {
-        return { width : unit, height : unit };
-      };
-
-      var super_createUI = device.createUI.bind(device);
-      device.createUI = function() {
-        super_createUI();
-
-        var $label = device.$ui.children('.simcir-device-label');
-        $label.attr('y', $label.attr('y') - unit / 4);
-
-        var $point = $s.createSVGElement('circle').
-          css('pointer-events', 'none').css('opacity', 0).attr('r', 2).
-          addClass('simcir-connector').addClass('simcir-joint-point');
-        device.$ui.append($point);
-
-        var $path = $s.createSVGElement('path').
-          css('pointer-events', 'none').css('opacity', 0).
-          addClass('simcir-connector');
-        device.$ui.append($path);
-
-        var $title = $s.createSVGElement('title').
-          text('Double-Click to change a direction.');
-
-        var updatePoint = function() {
-          $point.css('display', out1.getInputs().length > 1? '' : 'none');
-        };
-
+      var super_connectTo = out1.connectTo.bind(out1);
+      out1.connectTo = function(inNode) {
+        super_connectTo(inNode);
         updatePoint();
+      };
+      var super_disconnectFrom = out1.disconnectFrom.bind(out1);
+      out1.disconnectFrom = function(inNode) {
+        super_disconnectFrom(inNode);
+        updatePoint();
+      };
 
-        var super_connectTo = out1.connectTo.bind(out1);
-        out1.connectTo = function(inNode) {
-          super_connectTo(inNode);
-          updatePoint();
-        };
-        var super_disconnectFrom = out1.disconnectFrom.bind(out1);
-        out1.disconnectFrom = function(inNode) {
-          super_disconnectFrom(inNode);
-          updatePoint();
-        };
+      var updateUI = function() {
+        var x0, y0, x1, y1;
+        x0 = y0 = x1 = y1 = unit / 2;
+        var d = unit / 2;
+        var direction = state.direction;
+        if (direction == JointDirection.WE) {
+          x0 -= d;
+          x1 += d;
+        } else if (direction == JointDirection.NS) {
+          y0 -= d;
+          y1 += d;
+        } else if (direction == JointDirection.EW) {
+          x0 += d;
+          x1 -= d;
+        } else if (direction == JointDirection.SN) {
+          y0 += d;
+          y1 -= d;
+        }
+        $path.attr('d', 'M' + x0 + ' ' + y0 + 'L' + x1 + ' ' + y1);
+        $s.transform(in1.$ui, x0, y0);
+        $s.transform(out1.$ui, x1, y1);
+        $point.attr({cx : x1, cy : y1});
+        if (direction == JointDirection.EW || direction == JointDirection.WE) {
+          dev.$ui.children('.simcir-device-body').
+            attr({x: 0, y: unit / 4, width: unit, height: unit / 2});
+        } else {
+          dev.$ui.children('.simcir-device-body').
+            attr({x: unit / 4, y: 0, width: unit / 2, height: unit});
+        }
+      };
 
-        var updateUI = function() {
-          var x0, y0, x1, y1;
-          x0 = y0 = x1 = y1 = unit / 2;
-          var d = unit / 2;
-          var direction = state.direction;
-          if (direction == Direction.WE) {
-            x0 -= d;
-            x1 += d;
-          } else if (direction == Direction.NS) {
-            y0 -= d;
-            y1 += d;
-          } else if (direction == Direction.EW) {
-            x0 += d;
-            x1 -= d;
-          } else if (direction == Direction.SN) {
-            y0 += d;
-            y1 -= d;
-          }
-          $path.attr('d', 'M' + x0 + ' ' + y0 + 'L' + x1 + ' ' + y1);
-          $s.transform(in1.$ui, x0, y0);
-          $s.transform(out1.$ui, x1, y1);
-          $point.attr({cx : x1, cy : y1});
-          if (direction == Direction.EW || direction == Direction.WE) {
-            device.$ui.children('.simcir-device-body').
-              attr({x: 0, y: unit / 4, width: unit, height: unit / 2});
-          } else {
-            device.$ui.children('.simcir-device-body').
-              attr({x: unit / 4, y: 0, width: unit / 2, height: unit});
-          }
-        };
+      updateUI();
 
-        updateUI();
-
-        // fadeout a body.
-        var fadeCount = 0;
-        var setOpacity = function(opacity) {
-          device.$ui.children('.simcir-device-body,.simcir-node').
-            css('opacity', opacity);
-          $path.css('opacity', 1 - opacity);
-          $point.css('opacity', 1 - opacity);
-        };
-        var fadeout = function() {
-          window.setTimeout(function() {
-            if (fadeCount > 0) {
-              fadeCount -= 1;
-              setOpacity(fadeCount / maxFadeCount);
-              fadeout();
-            }
-          }, fadeTimeout);
-        };
-
-        var isEditable = function($dev) {
-          var $workspace = $dev.closest('.simcir-workspace');
-          return !!$s.controller($workspace).data().editable;
-        };
-        var device_mouseoutHandler = function(event) {
-          if (!isEditable($(event.target) ) ) {
-            return;
-          }
-          if (!device.isSelected() ) {
-            fadeCount = maxFadeCount;
+      // fadeout a body.
+      var fadeCount = 0;
+      var setOpacity = function(opacity) {
+        dev.$ui.children('.simcir-device-body,.simcir-node').
+          css('opacity', opacity);
+        $path.css('opacity', 1 - opacity);
+        $point.css('opacity', 1 - opacity);
+      };
+      var fadeout = function() {
+        window.setTimeout(function() {
+          if (fadeCount > 0) {
+            fadeCount -= 1;
+            setOpacity(fadeCount / maxFadeCount);
             fadeout();
           }
-        };
-        var device_dblclickHandler = function(event) {
+        }, fadeTimeout);
+      };
+
+      var isEditable = function($dev) {
+        var $workspace = $dev.closest('.simcir-workspace');
+        return !!$s.controller($workspace).data().editable;
+      };
+      var device_mouseoutHandler = function(event) {
+        if (!isEditable($(event.target) ) ) {
+          return;
+        }
+        if (!dev.isSelected() ) {
+          fadeCount = maxFadeCount;
+          fadeout();
+        }
+      };
+      var device_dblclickHandler = function(event) {
+        if (!isEditable($(event.target) ) ) {
+          return;
+        }
+        state.direction = (state.direction + 1) % 4;
+        updateUI();
+        // update connectors.
+        $(this).trigger('mousedown').trigger('mouseup');
+      };
+
+      dev.$ui.on('mouseover', function(event) {
           if (!isEditable($(event.target) ) ) {
+            $title.text('');
             return;
           }
-          state.direction = (state.direction + 1) % 4;
-          updateUI();
-          // update connectors.
-          $(this).trigger('mousedown').trigger('mouseup');
-        };
-
-        device.$ui.on('mouseover', function(event) {
-            if (!isEditable($(event.target) ) ) {
-              $title.text('');
-              return;
-            }
+          setOpacity(1);
+          fadeCount = 0;
+        }).on('deviceAdd', function() {
+          if ($(this).closest('BODY').length == 0) {
+            setOpacity(0);
+          }
+          $(this).append($title).on('mouseout', device_mouseoutHandler).
+            on('dblclick', device_dblclickHandler);
+          // hide a label
+          $label.css('display', 'none');
+        }).on('deviceRemove', function() {
+          $(this).off('mouseout', device_mouseoutHandler).
+            off('dblclick', device_dblclickHandler);
+          $title.remove();
+          // show a label
+          $label.css('display', '');
+        }).on('deviceSelect', function() {
+          if (dev.isSelected() ) {
             setOpacity(1);
             fadeCount = 0;
-          }).on('deviceAdd', function() {
-            if ($(this).closest('BODY').length == 0) {
+          } else {
+            if (fadeCount == 0) {
               setOpacity(0);
             }
-            $(this).append($title).on('mouseout', device_mouseoutHandler).
-              on('dblclick', device_dblclickHandler);
-            // hide a label
-            $label.css('display', 'none');
-          }).on('deviceRemove', function() {
-            $(this).off('mouseout', device_mouseoutHandler).
-              off('dblclick', device_dblclickHandler);
-            $title.remove();
-            // show a label
-            $label.css('display', '');
-          }).on('deviceSelect', function() {
-            if (device.isSelected() ) {
-              setOpacity(1);
-              fadeCount = 0;
-            } else {
-              if (fadeCount == 0) {
-                setOpacity(0);
-              }
-            }
-          });
-      };
-    };
-  };
+          }
+        });
+    }
+  }
 
   // register built-in devices
-  $s.registerDevice('In', createPortFactory('in') );
-  $s.registerDevice('Out', createPortFactory('out') );
-  $s.registerDevice('Joint', createJointFactory() );
+  $s.registerDevice('In', PortDevice);
+  $s.registerDevice('Out', PortDevice);
+  $s.registerDevice('Joint', JointDevice);
 
 }(simcir);
