@@ -251,6 +251,42 @@ test('a 4bit7seg sets the hot input pattern (8 inputs, one per segment + dot)', 
 });
 
 // ---------------------------------------------------------------------------
+// Buses and sources
+// ---------------------------------------------------------------------------
+test('a DC source drives its output hot once added', () => {
+  const { devices } = createWorkspace(baseData(
+    [
+      { type: 'DC', id: 'dc0', x: 0, y: 0 },
+      { type: 'Out', id: 'out0', x: 80, y: 0 },
+    ],
+    [{ from: 'dc0.out0', to: 'out0.in0' }],
+  ));
+  const { harness } = loadSimcir();
+  harness.settle();
+  assert.equal(devices.out0.getInputs()[0].getValue(), HI);
+});
+
+test('a BusOut packs hot inputs into a bus that BusIn unpacks', () => {
+  const { devices } = createWorkspace(baseData(
+    [
+      { type: 'BusOut', id: 'bo0', x: 0, y: 0, numInputs: 4 },
+      { type: 'BusIn', id: 'bi0', x: 80, y: 0, numOutputs: 4 },
+    ],
+    [{ from: 'bo0.out0', to: 'bi0.in0' }],
+  ));
+  const { harness } = loadSimcir();
+
+  devices.bo0.getInputs()[0].setValue(HI);
+  devices.bo0.getInputs()[2].setValue(HI);
+  harness.settle();
+
+  assert.equal(devices.bi0.getOutputs()[0].getValue(), HI);
+  assert.equal(devices.bi0.getOutputs()[1].getValue(), null);
+  assert.equal(devices.bi0.getOutputs()[2].getValue(), HI);
+  assert.equal(devices.bi0.getOutputs()[3].getValue(), null);
+});
+
+// ---------------------------------------------------------------------------
 // Logic gates
 // ---------------------------------------------------------------------------
 const GATES = {
