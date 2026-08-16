@@ -116,7 +116,18 @@ interface SimcirCustomLayout {
   nodes: { [label : string] : string };
 }
 
-type SimcirTypeFactory = <Def extends SimcirDeviceDef>(device : Def) => void;
+interface SimcirDeviceParams {
+  $ui: JQuery;
+  deviceDef: SimcirDeviceDef;
+  headless: boolean;
+  scope: any;
+  doc: SimcirDocument;
+  defaults: { [name : string] : any };
+}
+
+type SimcirTypeFactory =
+  | <Def extends SimcirDeviceDef>(device : Def) => void
+  | { new (params: SimcirDeviceParams): SimcirDevice<SimcirDeviceDef> };
 
 // Schema manipulation event detail interfaces
 

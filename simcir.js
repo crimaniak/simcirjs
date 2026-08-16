@@ -1378,210 +1378,223 @@ simcir.$ = function() {
   };
 
   var createDeviceRefFactory = function(data) {
-    return function(device) {
-      var $devs = buildCircuit(data, true, {});
-      var $ports = [];
-      $.each($devs, function(i, $dev) {
-        var deviceDef = controller($dev).deviceDef;
-        if (deviceDef.type == 'In' || deviceDef.type == 'Out') {
-          $ports.push($dev);
-        }
-      });
-      $ports.sort(function($p1, $p2) {
-        var x1 = controller($p1).deviceDef.x;
-        var y1 = controller($p1).deviceDef.y;
-        var x2 = controller($p2).deviceDef.x;
-        var y2 = controller($p2).deviceDef.y;
-        if (x1 == x2) {
-          return (y1 < y2)? -1 : 1;
-        }
-        return (x1 < x2)? -1 : 1;
-      });
-      var getDesc = function(port) {
-        return port? port.description : '';
-      };
-      $.each($ports, function(i, $port) {
-        var port = controller($port);
-        var portDef = port.deviceDef;
-        var inPort;
-        var outPort;
-        if (portDef.type == 'In') {
-          outPort = port.getOutputs()[0];
-          inPort = device.addInput(portDef.label,
-              getDesc(outPort.getInputs()[0]) );
-          // force disconnect test devices that connected to In-port
-          var inNode = port.getInputs()[0];
-          if (inNode.getOutput() != null) {
-            inNode.getOutput().disconnectFrom(inNode);
+    return class DeviceRefDevice extends DeviceController {
+      constructor(device) {
+        super(device);
+        var dev = this;
+        var $devs = buildCircuit(data, true, {});
+        var $ports = [];
+        $.each($devs, function(i, $dev) {
+          var deviceDef = controller($dev).deviceDef;
+          if (deviceDef.type == 'In' || deviceDef.type == 'Out') {
+            $ports.push($dev);
           }
-        } else if (portDef.type == 'Out') {
-          inPort = port.getInputs()[0];
-          outPort = device.addOutput(portDef.label,
-              getDesc(inPort.getOutput() ) );
-          // force disconnect test devices that connected to Out-port
-          var outNode = port.getOutputs()[0];
-          $.each(outNode.getInputs(), function(i, inNode) {
+        });
+        $ports.sort(function($p1, $p2) {
+          var x1 = controller($p1).deviceDef.x;
+          var y1 = controller($p1).deviceDef.y;
+          var x2 = controller($p2).deviceDef.x;
+          var y2 = controller($p2).deviceDef.y;
+          if (x1 == x2) {
+            return (y1 < y2)? -1 : 1;
+          }
+          return (x1 < x2)? -1 : 1;
+        });
+        var getDesc = function(port) {
+          return port? port.description : '';
+        };
+        $.each($ports, function(i, $port) {
+          var port = controller($port);
+          var portDef = port.deviceDef;
+          var inPort;
+          var outPort;
+          if (portDef.type == 'In') {
+            outPort = port.getOutputs()[0];
+            inPort = dev.addInput(portDef.label,
+                getDesc(outPort.getInputs()[0]) );
+            // force disconnect test devices that connected to In-port
+            var inNode = port.getInputs()[0];
             if (inNode.getOutput() != null) {
               inNode.getOutput().disconnectFrom(inNode);
             }
-          } );
-        }
-        inPort.$ui.on('nodeValueChange', function() {
-          outPort.setValue(inPort.getValue() );
+          } else if (portDef.type == 'Out') {
+            inPort = port.getInputs()[0];
+            outPort = dev.addOutput(portDef.label,
+                getDesc(inPort.getOutput() ) );
+            // force disconnect test devices that connected to Out-port
+            var outNode = port.getOutputs()[0];
+            $.each(outNode.getInputs(), function(i, inNode) {
+              if (inNode.getOutput() != null) {
+                inNode.getOutput().disconnectFrom(inNode);
+              }
+            } );
+          }
+          inPort.$ui.on('nodeValueChange', function() {
+            outPort.setValue(inPort.getValue() );
+          });
         });
-      });
-      var super_getSize = device.getSize.bind(device);
-      device.getSize = function() {
-        var size = super_getSize();
+        dev.$ui.on('dispose', function() {
+          $.each($devs, function(i, $dev) {
+            $dev.trigger('dispose');
+          });
+        } );
+        dev.$ui.on('dblclick', function(event) {
+          // open library,
+          event.preventDefault();
+          event.stopPropagation();
+          showDialog(dev.deviceDef.label || dev.deviceDef.type,
+              setupSimcir($('<div></div>'), data) ).on('close', function() {
+                $(this).find('.simcir-workspace').trigger('dispose');
+              });
+        });
+      }
+
+      getSize() {
+        var size = super.getSize();
         return {width: unit * 4, height: size.height};
-      };
-      device.$ui.on('dispose', function() {
-        $.each($devs, function(i, $dev) {
-          $dev.trigger('dispose');
-        });
-      } );
-      device.$ui.on('dblclick', function(event) {
-        // open library,
-        event.preventDefault();
-        event.stopPropagation();
-        showDialog(device.deviceDef.label || device.deviceDef.type,
-            setupSimcir($('<div></div>'), data) ).on('close', function() {
-              $(this).find('.simcir-workspace').trigger('dispose');
-            });
-      });
+      }
     };
   };
 
   var createCustomLayoutDeviceRefFactory = function(data) {
-    return function(device) {
-      var $devs = buildCircuit(data, true, {});
-      var $ports = [];
-      var intfs = [];
-      $.each($devs, function(i, $dev) {
-        var deviceDef = controller($dev).deviceDef;
-        if (deviceDef.type == 'In' || deviceDef.type == 'Out') {
-          $ports.push($dev);
-        }
-      });
-      var getDesc = function(port) {
-        return port? port.description : '';
-      };
-      $.each($ports, function(i, $port) {
-        var port = controller($port);
-        var portDef = port.deviceDef;
-        var inPort;
-        var outPort;
-        if (portDef.type == 'In') {
-          outPort = port.getOutputs()[0];
-          inPort = device.addInput();
-          intfs.push({ node : inPort, label : portDef.label,
-              desc : getDesc(outPort.getInputs()[0]) });
-          // force disconnect test devices that connected to In-port
-          var inNode = port.getInputs()[0];
-          if (inNode.getOutput() != null) {
-            inNode.getOutput().disconnectFrom(inNode);
+    return class CustomLayoutDeviceRefDevice extends DeviceController {
+      constructor(device) {
+        super(device);
+        var dev = this;
+        var $devs = buildCircuit(data, true, {});
+        var $ports = [];
+        var intfs = [];
+        $.each($devs, function(i, $dev) {
+          var deviceDef = controller($dev).deviceDef;
+          if (deviceDef.type == 'In' || deviceDef.type == 'Out') {
+            $ports.push($dev);
           }
-        } else if (portDef.type == 'Out') {
-          inPort = port.getInputs()[0];
-          outPort = device.addOutput();
-          intfs.push({ node : outPort, label : portDef.label,
-              desc : getDesc(inPort.getOutput() ) });
-          // force disconnect test devices that connected to Out-port
-          var outNode = port.getOutputs()[0];
-          $.each(outNode.getInputs(), function(i, inNode) {
+        });
+        var getDesc = function(port) {
+          return port? port.description : '';
+        };
+        $.each($ports, function(i, $port) {
+          var port = controller($port);
+          var portDef = port.deviceDef;
+          var inPort;
+          var outPort;
+          if (portDef.type == 'In') {
+            outPort = port.getOutputs()[0];
+            inPort = dev.addInput();
+            intfs.push({ node : inPort, label : portDef.label,
+                desc : getDesc(outPort.getInputs()[0]) });
+            // force disconnect test devices that connected to In-port
+            var inNode = port.getInputs()[0];
             if (inNode.getOutput() != null) {
               inNode.getOutput().disconnectFrom(inNode);
             }
-          } );
-        }
-        inPort.$ui.on('nodeValueChange', function() {
-          outPort.setValue(inPort.getValue() );
-        });
-      });
-      var layout = data.layout;
-      var cols = layout.cols;
-      var rows = layout.rows;
-      rows = ~~( (Math.max(1, rows) + 1) / 2) * 2;
-      cols = ~~( (Math.max(1, cols) + 1) / 2) * 2;
-      var updateIntf = function(intf, x, y, align) {
-        transform(intf.node.$ui, x, y);
-        if (!intf.$label) {
-          intf.$label = createLabel(intf.label).
-            attr('class', 'simcir-node-label');
-          enableEvents(intf.$label, false);
-          intf.node.$ui.append(intf.$label);
-        }
-        if (align == 'right') {
-          intf.$label.attr('text-anchor', 'start').
-            attr('x', 6).
-            attr('y', fontSize / 2);
-        } else if (align == 'left') {
-          intf.$label.attr('text-anchor', 'end').
-            attr('x', -6).
-            attr('y', fontSize / 2);
-        } else if (align == 'top') {
-          intf.$label.attr('text-anchor', 'middle').
-            attr('x', 0).
-            attr('y', -6);
-        } else if (align == 'bottom') {
-          intf.$label.attr('text-anchor', 'middle').
-            attr('x', 0).
-            attr('y', fontSize + 6);
-        }
-      };
-      var doLayout = function() {
-        var x = 0;
-        var y = 0;
-        var w = unit * cols / 2;
-        var h = unit * rows / 2;
-        device.$ui.children('.simcir-device-label').
-          attr({y : y + h + fontSize});
-        device.$ui.children('.simcir-device-body').
-          attr({x: x, y: y, width: w, height: h});
-        $.each(intfs, function(i, intf) {
-          if (layout.nodes[intf.label] &&
-              layout.nodes[intf.label].match(/^([TBLR])([0-9]+)$/) ) {
-            var off = +RegExp.$2 * unit / 2;
-            switch(RegExp.$1) {
-            case 'T' : updateIntf(intf, x + off, y, 'bottom'); break;
-            case 'B' : updateIntf(intf, x + off, y + h, 'top'); break;
-            case 'L' : updateIntf(intf, x, y + off, 'right'); break;
-            case 'R' : updateIntf(intf, x + w, y + off, 'left'); break;
-            }
-          } else {
-            transform(intf.node.$ui, 0, 0);
+          } else if (portDef.type == 'Out') {
+            inPort = port.getInputs()[0];
+            outPort = dev.addOutput();
+            intfs.push({ node : outPort, label : portDef.label,
+                desc : getDesc(inPort.getOutput() ) });
+            // force disconnect test devices that connected to Out-port
+            var outNode = port.getOutputs()[0];
+            $.each(outNode.getInputs(), function(i, inNode) {
+              if (inNode.getOutput() != null) {
+                inNode.getOutput().disconnectFrom(inNode);
+              }
+            } );
           }
+          inPort.$ui.on('nodeValueChange', function() {
+            outPort.setValue(inPort.getValue() );
+          });
         });
-      };
-      device.getSize = function() {
-        return {width: unit * cols / 2, height: unit * rows / 2};
-      };
-      device.$ui.on('dispose', function() {
-        $.each($devs, function(i, $dev) {
-          $dev.trigger('dispose');
-        });
-      } );
-      if (data.layout.hideLabelOnWorkspace) {
-        device.$ui.on('deviceAdd', function() {
-          device.$ui.children('.simcir-device-label').css('display', 'none');
-        }).on('deviceRemove', function() {
-          device.$ui.children('.simcir-device-label').css('display', '');
+        var layout = data.layout;
+        var cols = layout.cols;
+        var rows = layout.rows;
+        rows = ~~( (Math.max(1, rows) + 1) / 2) * 2;
+        cols = ~~( (Math.max(1, cols) + 1) / 2) * 2;
+        var updateIntf = function(intf, x, y, align) {
+          transform(intf.node.$ui, x, y);
+          if (!intf.$label) {
+            intf.$label = createLabel(intf.label).
+              attr('class', 'simcir-node-label');
+            enableEvents(intf.$label, false);
+            intf.node.$ui.append(intf.$label);
+          }
+          if (align == 'right') {
+            intf.$label.attr('text-anchor', 'start').
+              attr('x', 6).
+              attr('y', fontSize / 2);
+          } else if (align == 'left') {
+            intf.$label.attr('text-anchor', 'end').
+              attr('x', -6).
+              attr('y', fontSize / 2);
+          } else if (align == 'top') {
+            intf.$label.attr('text-anchor', 'middle').
+              attr('x', 0).
+              attr('y', -6);
+          } else if (align == 'bottom') {
+            intf.$label.attr('text-anchor', 'middle').
+              attr('x', 0).
+              attr('y', fontSize + 6);
+          }
+        };
+        var doLayout = function() {
+          var x = 0;
+          var y = 0;
+          var w = unit * cols / 2;
+          var h = unit * rows / 2;
+          dev.$ui.children('.simcir-device-label').
+            attr({y : y + h + fontSize});
+          dev.$ui.children('.simcir-device-body').
+            attr({x: x, y: y, width: w, height: h});
+          $.each(intfs, function(i, intf) {
+            if (layout.nodes[intf.label] &&
+                layout.nodes[intf.label].match(/^([TBLR])([0-9]+)$/) ) {
+              var off = +RegExp.$2 * unit / 2;
+              switch(RegExp.$1) {
+              case 'T' : updateIntf(intf, x + off, y, 'bottom'); break;
+              case 'B' : updateIntf(intf, x + off, y + h, 'top'); break;
+              case 'L' : updateIntf(intf, x, y + off, 'right'); break;
+              case 'R' : updateIntf(intf, x + w, y + off, 'left'); break;
+              }
+            } else {
+              transform(intf.node.$ui, 0, 0);
+            }
+          });
+        };
+        dev._cols = cols;
+        dev._rows = rows;
+        dev._doLayout = doLayout;
+        dev.$ui.on('dispose', function() {
+          $.each($devs, function(i, $dev) {
+            $dev.trigger('dispose');
+          });
+        } );
+        if (layout.hideLabelOnWorkspace) {
+          dev.$ui.on('deviceAdd', function() {
+            dev.$ui.children('.simcir-device-label').css('display', 'none');
+          }).on('deviceRemove', function() {
+            dev.$ui.children('.simcir-device-label').css('display', '');
+          });
+        }
+        dev.$ui.on('dblclick', function(event) {
+          // open library,
+          event.preventDefault();
+          event.stopPropagation();
+          showDialog(dev.deviceDef.label || dev.deviceDef.type,
+              setupSimcir($('<div></div>'), data) ).on('close', function() {
+                $(this).find('.simcir-workspace').trigger('dispose');
+              });
         });
       }
-      device.$ui.on('dblclick', function(event) {
-        // open library,
-        event.preventDefault();
-        event.stopPropagation();
-        showDialog(device.deviceDef.label || device.deviceDef.type,
-            setupSimcir($('<div></div>'), data) ).on('close', function() {
-              $(this).find('.simcir-workspace').trigger('dispose');
-            });
-      });
-      var super_createUI = device.createUI.bind(device);
-      device.createUI = function() {
-        super_createUI();
-        doLayout();
-      };
+
+      getSize() {
+        return {width: unit * this._cols / 2,
+          height: unit * this._rows / 2};
+      }
+
+      createUI() {
+        super.createUI();
+        this._doLayout();
+      }
     };
   };
 
