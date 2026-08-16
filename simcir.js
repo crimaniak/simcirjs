@@ -970,11 +970,11 @@ simcir.$ = function() {
     if (!headless) {
       $dev.attr('class', 'simcir-device');
     }
-    controller($dev, createDeviceController(
+    var devCtrl = new DeviceController(
         {$ui: $dev, deviceDef: deviceDef,
           headless: headless, scope: scope, doc: null,
-          defaults: defaults || null}) );
-    var devCtrl = controller($dev);
+          defaults: defaults || null});
+    controller($dev, devCtrl);
     devCtrl.id = devCtrl.id || 'dev' + (++deviceIdCounter);
     var factory = factories[deviceDef.type];
     if (factory) {
@@ -986,136 +986,161 @@ simcir.$ = function() {
     return $dev;
   };
 
-  var createDeviceController = function(device) {
-    var inputs = [];
-    var outputs = [];
-    var defaults = device.defaults || {};
-    var defaultPortRadius = defaults.portRadius != null?
-        defaults.portRadius : 4;
-    var defaultRectanglePadding = defaults.rectanglePadding != null?
-        defaults.rectanglePadding : 0;
-    var defaultPortPadding = defaults.portPadding != null?
-        defaults.portPadding : 0;
-    var portRadius = device.deviceDef.portRadius != null?
-        device.deviceDef.portRadius : defaultPortRadius;
-    var rectanglePadding = device.deviceDef.rectanglePadding != null?
-        device.deviceDef.rectanglePadding :
-        (device.deviceDef.portRadius != null?
-            portRadius - defaultPortRadius + defaultRectanglePadding :
-            defaultRectanglePadding);
-    var portPadding = device.deviceDef.portPadding != null?
-        device.deviceDef.portPadding : defaultPortPadding;
-    var addInput = function(label, description) {
-      var $node = createNode('in', label, description,
-          device.headless, portRadius, rectanglePadding);
-      $node.on('nodeValueChange', function(event) {
-        device.$ui.trigger('inputValueChange');
+  class DeviceController {
+    constructor(device) {
+      var dev = this;
+      dev.$ui = device.$ui;
+      dev.deviceDef = device.deviceDef;
+      dev.headless = device.headless;
+      dev.scope = device.scope;
+      dev.doc = device.doc;
+      dev.defaults = device.defaults || {};
+      dev._inputs = [];
+      dev._outputs = [];
+      dev._selected = false;
+      dev.halfPitch = false;
+
+      var defaultPortRadius = dev.defaults.portRadius != null?
+          dev.defaults.portRadius : 4;
+      var defaultRectanglePadding = dev.defaults.rectanglePadding != null?
+          dev.defaults.rectanglePadding : 0;
+      var defaultPortPadding = dev.defaults.portPadding != null?
+          dev.defaults.portPadding : 0;
+      dev.portRadius = dev.deviceDef.portRadius != null?
+          dev.deviceDef.portRadius : defaultPortRadius;
+      dev.rectanglePadding = dev.deviceDef.rectanglePadding != null?
+          dev.deviceDef.rectanglePadding :
+          (dev.deviceDef.portRadius != null?
+              dev.portRadius - defaultPortRadius + defaultRectanglePadding :
+              defaultRectanglePadding);
+      dev.portPadding = dev.deviceDef.portPadding != null?
+          dev.deviceDef.portPadding : defaultPortPadding;
+
+      var label = dev.deviceDef.label;
+      var defaultLabel = dev.deviceDef.type;
+      if (typeof label == 'undefined') {
+        label = defaultLabel;
+      }
+      dev._label = label;
+      dev._defaultLabel = defaultLabel;
+
+      dev.$ui.on('dispose', function() {
+        dev.getInputs().forEach(function(inNode) {
+          inNode.$ui.remove();
+        });
+        dev.getOutputs().forEach(function(outNode) {
+          outNode.$ui.remove();
+        });
+        dev.$ui.remove();
       });
-      if (!device.headless) {
-        device.$ui.append($node);
+    }
+
+    addInput(label, description) {
+      var dev = this;
+      var $node = createNode('in', label, description,
+          dev.headless, dev.portRadius, dev.rectanglePadding);
+      $node.on('nodeValueChange', function(event) {
+        dev.$ui.trigger('inputValueChange');
+      });
+      if (!dev.headless) {
+        dev.$ui.append($node);
       }
       var node = controller($node);
-      inputs.push(node);
+      dev._inputs.push(node);
       return node;
-    };
-    var addOutput = function(label, description) {
+    }
+
+    addOutput(label, description) {
+      var dev = this;
       var $node = createNode('out', label, description,
-          device.headless, portRadius, rectanglePadding);
-      if (!device.headless) {
-        device.$ui.append($node);
+          dev.headless, dev.portRadius, dev.rectanglePadding);
+      if (!dev.headless) {
+        dev.$ui.append($node);
       }
       var node = controller($node);
-      outputs.push(node);
+      dev._outputs.push(node);
       return node;
-    };
-    var getInputs = function() {
-      return inputs;
-    };
-    var getOutputs = function() {
-      return outputs;
-    };
-    var disconnectAll = function() {
-      $.each(getInputs(), function(i, inNode) {
+    }
+
+    getInputs() {
+      return this._inputs;
+    }
+
+    getOutputs() {
+      return this._outputs;
+    }
+
+    disconnectAll() {
+      var dev = this;
+      dev.getInputs().forEach(function(inNode) {
         var outNode = inNode.getOutput();
         if (outNode != null) {
           outNode.disconnectFrom(inNode);
         }
       });
-      $.each(getOutputs(), function(i, outNode) {
-        $.each(outNode.getInputs(), function(i, inNode) {
+      dev.getOutputs().forEach(function(outNode) {
+        outNode.getInputs().forEach(function(inNode) {
           outNode.disconnectFrom(inNode);
         });
       });
-    };
-    device.$ui.on('dispose', function() {
-      $.each(getInputs(), function(i, inNode) {
-        inNode.$ui.remove();
-      });
-      $.each(getOutputs(), function(i, outNode) {
-        outNode.$ui.remove();
-      });
-      device.$ui.remove();
-    } );
-
-    var selected = false;
-    var setSelected = function(value) {
-      selected = value;
-      device.$ui.trigger('deviceSelect');
-    };
-    var isSelected = function() {
-      return selected;
-    };
-
-    var label = device.deviceDef.label;
-    var defaultLabel = device.deviceDef.type;
-    if (typeof label == 'undefined') {
-      label = defaultLabel;
     }
-    var setLabel = function(value) {
+
+    setSelected(value) {
+      this._selected = value;
+      this.$ui.trigger('deviceSelect');
+    }
+
+    isSelected() {
+      return this._selected;
+    }
+
+    setLabel(value) {
       value = value.replace(/^\s+|\s+$/g, '');
-      label = value || defaultLabel;
-      device.$ui.trigger('deviceLabelChange');
-    };
-    var getLabel = function() {
-      return label;
-    };
+      this._label = value || this._defaultLabel;
+      this.$ui.trigger('deviceLabelChange');
+    }
 
-    var getSize = function() {
-      var nodes = Math.max(device.getInputs().length,
-          device.getOutputs().length);
-      return { width: unit * 2 + rectanglePadding * 2,
-        height: unit * Math.max(2, device.halfPitch?
+    getLabel() {
+      return this._label;
+    }
+
+    getSize() {
+      var dev = this;
+      var nodes = Math.max(dev.getInputs().length,
+          dev.getOutputs().length);
+      return { width: unit * 2 + dev.rectanglePadding * 2,
+        height: unit * Math.max(2, dev.halfPitch?
             (nodes + 1) / 2 : nodes)};
-    };
+    }
 
-    var layoutUI = function() {
-
-      var size = device.getSize();
+    layoutUI() {
+      var dev = this;
+      var size = dev.getSize();
       var w = size.width;
       var h = size.height;
 
-      device.$ui.children('.simcir-device-body').
+      dev.$ui.children('.simcir-device-body').
         attr({x: 0, y: 0, width: w, height: h});
 
-      var pitch = device.halfPitch? unit / 2 : unit;
+      var pitch = dev.halfPitch? unit / 2 : unit;
       var layoutNodes = function(nodes, x) {
         var offset = (h - pitch * (nodes.length - 1) ) / 2;
-        $.each(nodes, function(i, node) {
+        nodes.forEach(function(node, i) {
           transform(node.$ui, x, pitch * i + offset);
         });
       };
-      layoutNodes(getInputs(), portPadding);
-      layoutNodes(getOutputs(), w - portPadding);
+      layoutNodes(dev.getInputs(), dev.portPadding);
+      layoutNodes(dev.getOutputs(), w - dev.portPadding);
 
-      device.$ui.children('.simcir-device-label').
+      dev.$ui.children('.simcir-device-label').
         attr({x: w / 2, y: h + fontSize});
-    };
+    }
 
-    var createUI = function() {
-
-      device.$ui.attr('class', 'simcir-device');
-      device.$ui.on('deviceSelect', function() {
-        if (selected) {
+    createUI() {
+      var dev = this;
+      dev.$ui.attr('class', 'simcir-device');
+      dev.$ui.on('deviceSelect', function() {
+        if (dev.isSelected()) {
           $(this).addClass('simcir-device-selected');
         } else {
           $(this).removeClass('simcir-device-selected');
@@ -1125,13 +1150,13 @@ simcir.$ = function() {
       var $body = createSVGElement('rect').
         attr('class', 'simcir-device-body').
         attr('rx', 2).attr('ry', 2);
-      device.$ui.prepend($body);
+      dev.$ui.prepend($body);
 
-      var $label = createLabel(label).
+      var $label = createLabel(dev.getLabel()).
         attr('class', 'simcir-device-label').
         attr('text-anchor', 'middle');
-      device.$ui.on('deviceLabelChange', function() {
-        $label.text(getLabel() );
+      dev.$ui.on('deviceLabelChange', function() {
+        $label.text(dev.getLabel() );
       });
 
       var label_dblClickHandler = function(event) {
@@ -1152,11 +1177,11 @@ simcir.$ = function() {
               var oldLabel = $label.text();
               var newLabel = $(this).val();
               if (newLabel != oldLabel) {
-                setLabel(newLabel);
+                dev.setLabel(newLabel);
                 $workspace.trigger('deviceLabelChanged', {
                   device: {
-                    id: device.id,
-                    type: device.deviceDef.type,
+                    id: dev.id,
+                    type: dev.deviceDef.type,
                     label: newLabel
                   },
                   oldLabel: oldLabel,
@@ -1174,36 +1199,21 @@ simcir.$ = function() {
         var $dlg = showDialog(title, $placeHolder);
         $labelEditor.focus();
       };
-      device.$ui.on('deviceAdd', function() {
+      dev.$ui.on('deviceAdd', function() {
         $label.on('dblclick', label_dblClickHandler);
       } );
-      device.$ui.on('deviceRemove', function() {
+      dev.$ui.on('deviceRemove', function() {
         $label.off('dblclick', label_dblClickHandler);
       } );
-      device.$ui.append($label);
+      dev.$ui.append($label);
 
-      layoutUI();
+      dev.layoutUI();
+    }
 
-    };
-
-    var getState = function() { return null; };
-
-    return $.extend(device, {
-      addInput: addInput,
-      addOutput: addOutput,
-      getInputs: getInputs,
-      getOutputs: getOutputs,
-      disconnectAll: disconnectAll,
-      setSelected: setSelected,
-      isSelected: isSelected,
-      getLabel: getLabel,
-      halfPitch: false,
-      getSize: getSize,
-      createUI: createUI,
-      layoutUI: layoutUI,
-      getState: getState
-    });
-  };
+    getState() {
+      return null;
+    }
+  }
 
   var createConnector = function(x1, y1, x2, y2) {
     return createSVGElement('path').
@@ -1414,7 +1424,7 @@ simcir.$ = function() {
           outPort.setValue(inPort.getValue() );
         });
       });
-      var super_getSize = device.getSize;
+      var super_getSize = device.getSize.bind(device);
       device.getSize = function() {
         var size = super_getSize();
         return {width: unit * 4, height: size.height};
@@ -1561,7 +1571,7 @@ simcir.$ = function() {
               $(this).find('.simcir-workspace').trigger('dispose');
             });
       });
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
         doLayout();
@@ -2555,7 +2565,7 @@ simcir.$ = function() {
       var in1 = device.addInput();
       var out1 = device.addOutput();
       connectNode(in1, out1);
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
         var size = device.getSize();
@@ -2593,7 +2603,7 @@ simcir.$ = function() {
         return { width : unit, height : unit };
       };
 
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
 

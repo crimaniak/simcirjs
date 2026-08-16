@@ -177,7 +177,7 @@
       };
       updateOutput();
 
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
         var size = device.getSize();
@@ -260,7 +260,7 @@
         b = out(b);
         outputs[0].setValue( (b == 1)? 1 : null);
       });
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
         var size = device.getSize();
@@ -429,13 +429,13 @@
         device.addInput();
       }
 
-      var super_getSize = device.getSize;
+      var super_getSize = device.getSize.bind(device);
       device.getSize = function() {
         var size = super_getSize();
         return {width: unit * 4, height: size.height};
       };
 
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
 
@@ -503,13 +503,13 @@
         device.addInput();
       }
 
-      var super_getSize = device.getSize;
+      var super_getSize = device.getSize.bind(device);
       device.getSize = function() {
         var size = super_getSize();
         return {width: unit * 4, height: size.height};
       };
 
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
 
@@ -566,13 +566,13 @@
         device.addOutput();
       }
 
-      var super_getSize = device.getSize;
+      var super_getSize = device.getSize.bind(device);
       device.getSize = function() {
         var size = super_getSize();
         return {width: unit * 4, height: size.height};
       };
 
-      var super_createUI = device.createUI;
+      var super_createUI = device.createUI.bind(device);
       device.createUI = function() {
         super_createUI();
         var size = device.getSize();
@@ -654,7 +654,7 @@
   // register direct current source
   $s.registerDevice('DC', function(device) {
     device.addOutput();
-    var super_createUI = device.createUI;
+    var super_createUI = device.createUI.bind(device);
     device.createUI = function() {
       super_createUI();
       device.$ui.addClass('simcir-basicset-dc');
@@ -670,7 +670,7 @@
   // register simple LED
   $s.registerDevice('LED', function(device) {
     var in1 = device.addInput();
-    var super_createUI = device.createUI;
+    var super_createUI = device.createUI.bind(device);
     device.createUI = function() {
       super_createUI();
       var hiColor = device.deviceDef.color || defaultLEDColor;
@@ -745,7 +745,7 @@
         timerId = null;
       }
     });
-    var super_createUI = device.createUI;
+    var super_createUI = device.createUI.bind(device);
     device.createUI = function() {
       super_createUI();
       device.$ui.addClass('simcir-basicset-osc');
@@ -784,7 +784,7 @@
         out.setValue(extractValue(busValue, i) );
       });
     });
-    var super_createUI = device.createUI;
+    var super_createUI = device.createUI.bind(device);
     device.createUI = function() {
       super_createUI();
       device.doc = {
@@ -812,7 +812,7 @@
       device.getOutputs()[0].setValue(
           (hotCount > 0)? busValue : null);
     });
-    var super_createUI = device.createUI;
+    var super_createUI = device.createUI.bind(device);
     device.createUI = function() {
       super_createUI();
       device.doc = {
