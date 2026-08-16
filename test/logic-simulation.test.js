@@ -238,6 +238,19 @@ test('a Toggle switch passes its input through only when on', () => {
 });
 
 // ---------------------------------------------------------------------------
+// LED displays
+// ---------------------------------------------------------------------------
+test('a 4bit7seg sets the hot input pattern (8 inputs, one per segment + dot)', () => {
+  const { devices } = createWorkspace(baseData([
+    { type: '4bit7seg', id: 'seg0', x: 0, y: 0 },
+    { type: '7seg', id: 'seg1', x: 0, y: 80 },
+  ]));
+  assert.equal(devices.seg1.getInputs().length, 8, '7seg has 8 inputs');
+  assert.equal(devices.seg0.getInputs().length, 4, '4bit7seg has 4 inputs');
+  assert.equal(devices.seg0.getSize().width, 64, 'LED width is 4 units');
+});
+
+// ---------------------------------------------------------------------------
 // Logic gates
 // ---------------------------------------------------------------------------
 const GATES = {

@@ -449,132 +449,138 @@
           ' scale(' + scale + ') ');
   };
 
-  var createLEDSegFactory = function(seg) {
-    return function(device) {
-      var hiColor = device.deviceDef.color || defaultLEDColor;
-      var bgColor = device.deviceDef.bgColor || defaultLEDBgColor;
-      var loColor = multiplyColor(hiColor, bgColor, 0.25);
-      var allSegs = seg.allSegments + '.';
-      device.halfPitch = true;
+  var ledSegDefs = {
+    '7seg': _7Seg,
+    '16seg': _16Seg
+  };
+
+  class LEDSeg extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      var dev = this;
+      dev._seg = ledSegDefs[dev.deviceDef.type];
+      dev._hiColor = dev.deviceDef.color || defaultLEDColor;
+      dev._bgColor = dev.deviceDef.bgColor || defaultLEDBgColor;
+      dev._loColor = multiplyColor(dev._hiColor, dev._bgColor, 0.25);
+      var allSegs = dev._seg.allSegments + '.';
+      dev._allSegs = allSegs;
+      dev.halfPitch = true;
       for (var i = 0; i < allSegs.length; i += 1) {
-        device.addInput();
+        dev.addInput();
       }
+    }
 
-      var super_getSize = device.getSize.bind(device);
-      device.getSize = function() {
-        var size = super_getSize();
-        return {width: unit * 4, height: size.height};
+    getSize() {
+      var size = super.getSize();
+      return {width: unit * 4, height: size.height};
+    }
+
+    createUI() {
+      var dev = this;
+      super.createUI();
+
+      var $seg = createSegUI(dev, dev._seg);
+      dev.$ui.append($seg);
+
+      var update = function() {
+        var segs = dev._allSegs.split('').filter(function(c, i) {
+          return isHot(dev.getInputs()[i].getValue() );
+        }).join('');
+        $seg.children().remove();
+        drawSeg(dev._seg, $s.graphics($seg), segs,
+            dev._hiColor, dev._loColor, dev._bgColor);
       };
-
-      var super_createUI = device.createUI.bind(device);
-      device.createUI = function() {
-        super_createUI();
-
-        var $seg = createSegUI(device, seg);
-        device.$ui.append($seg);
-
-        var update = function() {
-          var segs = allSegs.split('').filter(function(c, i) {
-            return isHot(device.getInputs()[i].getValue() );
-          }).join('');
-          $seg.children().remove();
-          drawSeg(seg, $s.graphics($seg), segs,
-              hiColor, loColor, bgColor);
-        };
-        device.$ui.on('inputValueChange', update);
-        update();
-        device.doc = {
-          params: [
-            {name: 'color', type: 'string',
-              defaultValue: defaultLEDColor,
-              description: 'color in hexadecimal.'},
-            {name: 'bgColor', type: 'string',
-              defaultValue: defaultLEDBgColor,
-              description: 'background color in hexadecimal.'}
-          ],
-          code: '{"type":"' + device.deviceDef.type +
-          '","color":"' + defaultLEDColor + '"}'
-        };
+      dev.$ui.on('inputValueChange', update);
+      update();
+      dev.doc = {
+        params: [
+          {name: 'color', type: 'string',
+            defaultValue: defaultLEDColor,
+            description: 'color in hexadecimal.'},
+          {name: 'bgColor', type: 'string',
+            defaultValue: defaultLEDBgColor,
+            description: 'background color in hexadecimal.'}
+        ],
+        code: '{"type":"' + dev.deviceDef.type +
+        '","color":"' + defaultLEDColor + '"}'
       };
-    };
+    }
+  }
+
+  var led4bitPatterns = {
+    0: 'abcdef',
+    1: 'bc',
+    2: 'abdeg',
+    3: 'abcdg',
+    4: 'bcfg',
+    5: 'acdfg',
+    6: 'acdefg',
+    7: 'abc',
+    8: 'abcdefg',
+    9: 'abcdfg', 
+    a: 'abcefg',
+    b: 'cdefg',
+    c: 'adef',
+    d: 'bcdeg',
+    e: 'adefg',
+    f: 'aefg'
   };
 
-  var createLED4bitFactory = function() {
+  var getLed4bitPattern = function(value) {
+    return led4bitPatterns['0123456789abcdef'.charAt(value)];
+  };
 
-    var _PATTERNS = {
-      0: 'abcdef',
-      1: 'bc',
-      2: 'abdeg',
-      3: 'abcdg',
-      4: 'bcfg',
-      5: 'acdfg',
-      6: 'acdefg',
-      7: 'abc',
-      8: 'abcdefg',
-      9: 'abcdfg', 
-      a: 'abcefg',
-      b: 'cdefg',
-      c: 'adef',
-      d: 'bcdeg',
-      e: 'adefg',
-      f: 'aefg'
-    };
-
-    var getPattern = function(value) {
-      return _PATTERNS['0123456789abcdef'.charAt(value)];
-    };
-
-    var seg = _7Seg;
-
-    return function(device) {
-      var hiColor = device.deviceDef.color || defaultLEDColor;
-      var bgColor = device.deviceDef.bgColor || defaultLEDBgColor;
-      var loColor = multiplyColor(hiColor, bgColor, 0.25);
+  class LED4bit extends $s.DeviceController {
+    constructor(device) {
+      super(device);
+      var dev = this;
+      dev._hiColor = dev.deviceDef.color || defaultLEDColor;
+      dev._bgColor = dev.deviceDef.bgColor || defaultLEDBgColor;
+      dev._loColor = multiplyColor(dev._hiColor, dev._bgColor, 0.25);
       for (var i = 0; i < 4; i += 1) {
-        device.addInput();
+        dev.addInput();
       }
+    }
 
-      var super_getSize = device.getSize.bind(device);
-      device.getSize = function() {
-        var size = super_getSize();
-        return {width: unit * 4, height: size.height};
-      };
+    getSize() {
+      var size = super.getSize();
+      return {width: unit * 4, height: size.height};
+    }
 
-      var super_createUI = device.createUI.bind(device);
-      device.createUI = function() {
-        super_createUI();
+    createUI() {
+      var dev = this;
+      super.createUI();
 
-        var $seg = createSegUI(device, seg);
-        device.$ui.append($seg);
-  
-        var update = function() {
-          var value = 0;
-          for (var i = 0; i < 4; i += 1) {
-            if (isHot(device.getInputs()[i].getValue() ) ) {
-              value += (1 << i);
-            }
+      var $seg = createSegUI(dev, _7Seg);
+      dev.$ui.append($seg);
+
+      var update = function() {
+        var value = 0;
+        for (var i = 0; i < 4; i += 1) {
+          if (isHot(dev.getInputs()[i].getValue() ) ) {
+            value += (1 << i);
           }
-          $seg.children().remove();
-          drawSeg(seg, $s.graphics($seg), getPattern(value),
-              hiColor, loColor, bgColor);
-        };
-        device.$ui.on('inputValueChange', update);
-        update();
-        device.doc = {
-          params: [
-            {name: 'color', type: 'string',
-              defaultValue: defaultLEDColor,
-              description: 'color in hexadecimal.'},
-            {name: 'bgColor', type: 'string',
-              defaultValue: defaultLEDBgColor,
-              description: 'background color in hexadecimal.'}
-          ],
-          code: '{"type":"' + device.deviceDef.type +
-          '","color":"' + defaultLEDColor + '"}'
-        };
+        }
+        $seg.children().remove();
+        drawSeg(_7Seg, $s.graphics($seg), getLed4bitPattern(value),
+            dev._hiColor, dev._loColor, dev._bgColor);
       };
-    };
-  };
+      dev.$ui.on('inputValueChange', update);
+      update();
+      dev.doc = {
+        params: [
+          {name: 'color', type: 'string',
+            defaultValue: defaultLEDColor,
+            description: 'color in hexadecimal.'},
+          {name: 'bgColor', type: 'string',
+            defaultValue: defaultLEDBgColor,
+            description: 'background color in hexadecimal.'}
+        ],
+        code: '{"type":"' + dev.deviceDef.type +
+        '","color":"' + defaultLEDColor + '"}'
+      };
+    }
+  }
 
   var createRotaryEncoderFactory = function() {
     var _MIN_ANGLE = 45;
@@ -798,9 +804,9 @@
   $s.registerDevice('OSC', Oscillator);
 
   // register LED seg
-  $s.registerDevice('7seg', createLEDSegFactory(_7Seg) );
-  $s.registerDevice('16seg', createLEDSegFactory(_16Seg) );
-  $s.registerDevice('4bit7seg', createLED4bitFactory() );
+  $s.registerDevice('7seg', LEDSeg);
+  $s.registerDevice('16seg', LEDSeg);
+  $s.registerDevice('4bit7seg', LED4bit);
 
   // register Rotary Encoder
   $s.registerDevice('RotaryEncoder', createRotaryEncoderFactory() );
