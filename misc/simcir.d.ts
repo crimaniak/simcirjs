@@ -129,6 +129,57 @@ type SimcirTypeFactory =
   | <Def extends SimcirDeviceDef>(device : Def) => void
   | { new (params: SimcirDeviceParams): SimcirDevice<SimcirDeviceDef> };
 
+interface SimcirEquivalencyGroupDef {
+  inputs?: string[][];
+  outputs?: string[][];
+}
+
+interface SimcirSchemaComparatorOptions {
+  omitAttributes?: string[];
+  ignoreEquivalencyGroups?: boolean;
+  equivalencyGroups?: { [type : string] : SimcirEquivalencyGroupDef };
+}
+
+interface SimcirComparisonMismatch {
+  id: string;
+  type: 'type' | 'attribute';
+  attribute?: string;
+  value1: any;
+  value2: any;
+}
+
+interface SimcirComparisonConnectionDiff {
+  connection: string;
+  count1: number;
+  count2: number;
+}
+
+interface SimcirComparisonResult {
+  equal: boolean;
+  devices: {
+    missing: string[];
+    extra: string[];
+    mismatches: SimcirComparisonMismatch[];
+  };
+  connections: {
+    missing: SimcirComparisonConnectionDiff[];
+    extra: SimcirComparisonConnectionDiff[];
+  };
+}
+
+declare class SchemaComparatorOptions {
+  omitAttributes: string[];
+  ignoreEquivalencyGroups: boolean;
+  equivalencyGroups: { [type : string] : SimcirEquivalencyGroupDef };
+  constructor(options?: SimcirSchemaComparatorOptions);
+}
+
+declare class SchemaComparator {
+  options: SchemaComparatorOptions;
+  constructor(options?: SchemaComparatorOptions | SimcirSchemaComparatorOptions);
+  compare(schema1: SimcirData, schema2: SimcirData) : SimcirComparisonResult;
+}
+
 // Schema manipulation event detail interfaces
 
 interface SimcirDeviceInfo {
@@ -189,6 +240,10 @@ interface SimcirWorkspaceController {
   off(type: SimcirSchemaEventType, listener: (event: SimcirEvent, detail: SimcirSchemaEventDetail) => void) : void;
 }
 
+interface SimcirDeviceMetadata {
+  equivalencyGroups?: SimcirEquivalencyGroupDef;
+}
+
 interface Simcir {
   unit: number;
   createSVGElement(tagName: string) : JQuery;
@@ -199,11 +254,15 @@ interface Simcir {
   enableEvents($o: JQuery, enable: boolean) : void;
   controller($ui: JQuery, controller: any) : void;
   controller($ui: JQuery) : any;
-  registerDevice(type: string, factory: SimcirTypeFactory) : void;
-  registerDevice(type: string, data: SimcirData) : void;
+  registerDevice(type: string, factory: SimcirTypeFactory, options?: { deprecated?: boolean; equivalencyGroups?: SimcirEquivalencyGroupDef }) : void;
+  registerDevice(type: string, data: SimcirData, options?: { deprecated?: boolean; equivalencyGroups?: SimcirEquivalencyGroupDef }) : void;
+  getDeviceMetadata(type: string) : SimcirDeviceMetadata | null;
+  getDeviceTypes() : string[];
   clearSimcir($placeHolder: JQuery) : JQuery;
   setupSimcir($placeHolder: JQuery, data: SimcirData) : JQuery;
   createWorkspace(data: SimcirData) : JQuery;
+  SchemaComparatorOptions: typeof SchemaComparatorOptions;
+  SchemaComparator: typeof SchemaComparator;
 }
 
 declare var simcir : Simcir;

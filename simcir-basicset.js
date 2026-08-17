@@ -768,15 +768,18 @@
   // register logic gates
   $s.registerDevice('BUF', LogicGate);
   $s.registerDevice('NOT', LogicGate);
-  $s.registerDevice('AND', LogicGate);
-  $s.registerDevice('NAND', LogicGate);
-  $s.registerDevice('OR', LogicGate);
-  $s.registerDevice('NOR', LogicGate);
-  $s.registerDevice('XOR', LogicGate);
-  $s.registerDevice('XNOR', LogicGate);
+  var gateGroups = { equivalencyGroups: { inputs: [['in*']] } };
+  $s.registerDevice('AND', LogicGate, gateGroups);
+  $s.registerDevice('NAND', LogicGate, gateGroups);
+  $s.registerDevice('OR', LogicGate, gateGroups);
+  $s.registerDevice('NOR', LogicGate, gateGroups);
+  $s.registerDevice('XOR', LogicGate, gateGroups);
+  $s.registerDevice('XNOR', LogicGate, gateGroups);
   // deprecated. not displayed in the default toolbox.
-  $s.registerDevice('EOR', LogicGate, true);
-  $s.registerDevice('ENOR', LogicGate, true);
+  var deprecatedGateGroups = { deprecated: true,
+    equivalencyGroups: { inputs: [['in*']] } };
+  $s.registerDevice('EOR', LogicGate, deprecatedGateGroups);
+  $s.registerDevice('ENOR', LogicGate, deprecatedGateGroups);
 
   // register Oscillator
   class Oscillator extends $s.DeviceController {

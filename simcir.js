@@ -1605,8 +1605,17 @@ simcir.$ = function() {
   };
 
   var factories = {};
+  var deviceMetadata = {};
   var defaultToolbox = [];
-  var registerDevice = function(type, factory, deprecated) {
+  var registerDevice = function(type, factory, options) {
+    var deprecated = false;
+    var equivalencyGroups = null;
+    if (typeof options == 'object' && options != null) {
+      deprecated = !!options.deprecated;
+      equivalencyGroups = options.equivalencyGroups || null;
+    } else {
+      deprecated = !!options;
+    }
     if (typeof factory == 'object') {
       if (typeof factory.layout == 'object') {
         factory = createCustomLayoutDeviceRefFactory(factory);
@@ -1615,9 +1624,13 @@ simcir.$ = function() {
       }
     }
     factories[type] = factory;
+    deviceMetadata[type] = { equivalencyGroups: equivalencyGroups };
     if (!deprecated) {
       defaultToolbox.push({type: type});
     }
+  };
+  var getDeviceMetadata = function(type) {
+    return deviceMetadata[type] || null;
   };
 
   var createScrollbar = function() {
@@ -2548,6 +2561,8 @@ simcir.$ = function() {
 
   $.extend($s, {
     registerDevice: registerDevice,
+    getDeviceMetadata: getDeviceMetadata,
+    getDeviceTypes: function() { return Object.keys(factories); },
     clearSimcir: clearSimcir,
     setupSimcir: setupSimcir,
     createWorkspace: createWorkspace,

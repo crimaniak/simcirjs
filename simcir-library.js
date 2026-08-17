@@ -282,6 +282,8 @@ simcir.registerDevice('HalfAdder',
     {"from":"dev8.in0","to":"dev1.out0"}
   ]
 }
+,
+{ equivalencyGroups: { inputs: [['in0', 'in1']] } }
 );
 
 simcir.registerDevice('FullAdder',
@@ -322,6 +324,8 @@ simcir.registerDevice('FullAdder',
     {"from":"dev11.in0","to":"dev8.out0"}
   ]
 }
+,
+{ equivalencyGroups: { inputs: [['in*']] } }
 );
 
 simcir.registerDevice('4bitAdder',
@@ -371,6 +375,9 @@ simcir.registerDevice('4bitAdder',
     {"from":"dev16.in0","to":"dev3.out1"}
   ]
 }
+,
+{ equivalencyGroups: { inputs: [['in1','in5'],['in2','in6'],
+  ['in3','in7'],['in4','in8']] } }
 );
 
 simcir.registerDevice('2to4BinaryDecoder',
