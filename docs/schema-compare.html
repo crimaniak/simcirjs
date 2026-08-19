@@ -1,0 +1,272 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+<script type="text/javascript" src="../simcir.js"></script>
+<link rel="stylesheet" type="text/css" href="../simcir.css" />
+<script type="text/javascript" src="../simcir-basicset.js"></script>
+<link rel="stylesheet" type="text/css" href="../simcir-basicset.css" />
+<script type="text/javascript" src="../simcir-library.js"></script>
+<script type="text/javascript" src="../simcir-schema-compare.js"></script>
+<style type="text/css">
+* {
+  font-family: arial, sans-serif;
+}
+body {
+  margin: 16px;
+}
+.row {
+  display: flex;
+  gap: 16px;
+}
+.col {
+  flex: 1;
+  min-width: 0;
+}
+.col-label {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+textarea {
+  width: 100%;
+  height: 160px;
+  font-family: monospace;
+  font-size: 11px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+.controls {
+  margin: 12px 0;
+}
+.controls label {
+  cursor: pointer;
+}
+#result {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  min-height: 40px;
+}
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 13px;
+}
+.badge-equal {
+  background: #d4edda;
+  color: #155724;
+}
+.badge-notequal {
+  background: #f8d7da;
+  color: #721c24;
+}
+.section-title {
+  font-weight: bold;
+  margin-top: 8px;
+}
+.empty {
+  color: #999;
+}
+.item {
+  margin-left: 16px;
+}
+</style>
+<title>SimcirJS Schema Comparator</title>
+</head>
+<body>
+
+<h1>SimcirJS Schema Comparator</h1>
+<p>Edit either workspace. The comparison result updates automatically on every change.</p>
+
+<div class="row">
+  <div class="col">
+    <div class="col-label">Schema 1</div>
+    <div id="ws1"></div>
+    <textarea id="json1" readonly></textarea>
+  </div>
+  <div class="col">
+    <div class="col-label">Schema 2</div>
+    <div id="ws2"></div>
+    <textarea id="json2" readonly></textarea>
+  </div>
+</div>
+
+<div class="controls">
+  <label>
+    <input type="checkbox" id="ignoreEquiv" />
+    Ignore Equivalency Groups
+  </label>
+  <label style="margin-left:16px;">
+    <input type="checkbox" id="ignoreState" checked />
+    Ignore State
+  </label>
+</div>
+
+<div id="result"></div>
+
+<script>
+simcir.$(function() {
+
+  var schema1 = {
+    "width":400,
+    "height":200,
+    "showToolbox":true,
+    "devices":[
+      {"type":"DC","id":"dev0","x":64,"y":80,"label":"DC"},
+      {"type":"Toggle","id":"dev1","x":120,"y":48,"label":"A"},
+      {"type":"Toggle","id":"dev2","x":120,"y":112,"label":"B"},
+      {"type":"AND","id":"dev3","x":200,"y":80,"label":"AND"},
+      {"type":"LED","id":"dev4","x":280,"y":80,"label":"LED"}
+    ],
+    "connectors":[
+      {"from":"dev1.in0","to":"dev0.out0"},
+      {"from":"dev2.in0","to":"dev0.out0"},
+      {"from":"dev3.in0","to":"dev1.out0"},
+      {"from":"dev3.in1","to":"dev2.out0"},
+      {"from":"dev4.in0","to":"dev3.out0"}
+    ]
+  };
+
+  var schema2 = {
+    "width":400,
+    "height":200,
+    "showToolbox":true,
+    "devices":[
+      {"type":"DC","id":"dev0","x":64,"y":80,"label":"DC"},
+      {"type":"Toggle","id":"dev1","x":120,"y":48,"label":"A"},
+      {"type":"Toggle","id":"dev2","x":120,"y":112,"label":"B"},
+      {"type":"AND","id":"dev3","x":200,"y":80,"label":"AND"},
+      {"type":"LED","id":"dev4","x":280,"y":80,"label":"LED"}
+    ],
+    "connectors":[
+      {"from":"dev1.in0","to":"dev0.out0"},
+      {"from":"dev2.in0","to":"dev0.out0"},
+      {"from":"dev3.in0","to":"dev2.out0"},
+      {"from":"dev3.in1","to":"dev1.out0"},
+      {"from":"dev4.in0","to":"dev3.out0"}
+    ]
+  };
+
+  var $ws1El = simcir.$('#ws1');
+  var $ws2El = simcir.$('#ws2');
+  var $json1 = simcir.$('#json1');
+  var $json2 = simcir.$('#json2');
+  var $result = simcir.$('#result');
+  var $ignoreEquiv = simcir.$('#ignoreEquiv');
+  var $ignoreState = simcir.$('#ignoreState');
+
+  var ws1 = simcir.createWorkspace(schema1);
+  var ws2 = simcir.createWorkspace(schema2);
+  $ws1El.append(ws1);
+  $ws2El.append(ws2);
+
+  var EVENTS = ['deviceAdded','deviceRemoved','deviceMoved',
+      'deviceLabelChanged','connectionChanged','schemaChange'];
+
+  var normalizeSchema = function(schema) {
+    var devices = (schema.devices || []).slice();
+    devices.sort(function(a, b) {
+      if (a.type !== b.type) return a.type < b.type ? -1 : 1;
+      var al = a.label || '';
+      var bl = b.label || '';
+      if (al !== bl) return al < bl ? -1 : 1;
+      return 0;
+    });
+    var idMap = {};
+    devices.forEach(function(dev, i) {
+      idMap[dev.id] = 'dev' + i;
+      dev.id = 'dev' + i;
+    });
+    var connectors = (schema.connectors || []).map(function(conn) {
+      var fromParts = conn.from.split('.');
+      var toParts = conn.to.split('.');
+      return {
+        from: idMap[fromParts[0]] + '.' + fromParts[1],
+        to: idMap[toParts[0]] + '.' + toParts[1]
+      };
+    });
+    return {
+      width: schema.width,
+      height: schema.height,
+      showToolbox: schema.showToolbox,
+      editable: schema.editable,
+      devices: devices,
+      connectors: connectors
+    };
+  };
+
+  var runComparison = function() {
+    var text1 = simcir.controller(ws1).text();
+    var text2 = simcir.controller(ws2).text();
+    var normalized1 = normalizeSchema(JSON.parse(text1));
+    var normalized2 = normalizeSchema(JSON.parse(text2));
+    $json1.val(JSON.stringify(normalized1, null, 2));
+    $json2.val(JSON.stringify(normalized2, null, 2));
+
+    var comparator = new simcir.SchemaComparator({
+      ignoreEquivalencyGroups: $ignoreEquiv.prop('checked'),
+      ignoreState: $ignoreState.prop('checked')
+    });
+    var result = comparator.compare(normalized1, normalized2);
+
+    var html = '';
+    if (result.equal) {
+      html += '<span class="badge badge-equal">Equal</span>';
+    } else {
+      html += '<span class="badge badge-notequal">Not Equal</span>';
+    }
+
+    var d = result.devices;
+    html += '\n\nDevices:';
+    html += '\n  missing: ' + (d.missing.length === 0?
+        '<span class="empty">[none]</span>' :
+        d.missing.map(function(s) { return '<span class="item">' + s + '</span>'; }).join(' '));
+    html += '\n  extra: ' + (d.extra.length === 0?
+        '<span class="empty">[none]</span>' :
+        d.extra.map(function(s) { return '<span class="item">' + s + '</span>'; }).join(' '));
+    html += '\n  mismatches: ' + (d.mismatches.length === 0?
+        '<span class="empty">[none]</span>' :
+        d.mismatches.map(function(m) {
+          return '<span class="item">' + m.id + '.' + m.type +
+              (m.attribute ? '.' + m.attribute : '') +
+              ' (' + JSON.stringify(m.value1) + ' vs ' + JSON.stringify(m.value2) + ')</span>';
+        }).join('\n          '));
+
+    var c = result.connections;
+    html += '\n\nConnections:';
+    html += '\n  missing: ' + (c.missing.length === 0?
+        '<span class="empty">[none]</span>' :
+        c.missing.map(function(d) {
+          return '<span class="item">' + d.connection +
+              ' (x' + d.count1 + ' vs x' + d.count2 + ')</span>';
+        }).join('\n          '));
+    html += '\n  extra: ' + (c.extra.length === 0?
+        '<span class="empty">[none]</span>' :
+        c.extra.map(function(d) {
+          return '<span class="item">' + d.connection +
+              ' (x' + d.count1 + ' vs x' + d.count2 + ')</span>';
+        }).join('\n          '));
+
+    $result.html(html);
+  };
+
+  EVENTS.forEach(function(type) {
+    ws1.on(type, function() { runComparison(); });
+    ws2.on(type, function() { runComparison(); });
+  });
+
+  $ignoreEquiv.on('change', function() { runComparison(); });
+  $ignoreState.on('change', function() { runComparison(); });
+
+  runComparison();
+});
+</script>
+
+</body>
+</html>

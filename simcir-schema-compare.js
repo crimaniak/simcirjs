@@ -123,6 +123,12 @@
       this.omitAttributes = options.omitAttributes != null?
           options.omitAttributes : ['x', 'y'];
       this.ignoreEquivalencyGroups = options.ignoreEquivalencyGroups || false;
+      this.ignoreState = options.ignoreState != null?
+          options.ignoreState : true;
+      if (this.ignoreState &&
+          this.omitAttributes.indexOf('state') < 0) {
+        this.omitAttributes.push('state');
+      }
       this.equivalencyGroups = mergeEquivalencyGroups(
           buildDeviceEquivalencyGroups(), options.equivalencyGroups);
     }
