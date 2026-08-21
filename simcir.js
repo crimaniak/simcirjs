@@ -1109,6 +1109,7 @@ simcir.$ = function() {
     setLabel(value) {
       value = value.replace(/^\s+|\s+$/g, '');
       this._label = value || this._defaultLabel;
+      this.deviceDef.label = this._label;
       this.$ui.trigger('deviceLabelChange');
     }
 
@@ -1259,6 +1260,14 @@ simcir.$ = function() {
     };
     $.each(data.devices, function(i, deviceDef) {
       var $dev = createDevice(deviceDef, headless, scope, defaults);
+      var devCtrl = controller($dev);
+      devCtrl.id = deviceDef.id;
+      devCtrl.getInputs().forEach(function(node, j) {
+        node.id = deviceDef.id + '.in' + j;
+      });
+      devCtrl.getOutputs().forEach(function(node, j) {
+        node.id = deviceDef.id + '.out' + j;
+      });
       transform($dev, deviceDef.x, deviceDef.y);
       $devices.push($dev);
       $devMap[deviceDef.id] = $dev;
@@ -1902,6 +1911,7 @@ simcir.$ = function() {
       $devicePane.append($dev);
       $dev.trigger('deviceAdd');
       var devCtrl = controller($dev);
+      data.devices.push(devCtrl.deviceDef);
       $workspace.trigger('deviceAdded', {
         device: {
           id: devCtrl.id,
@@ -1924,6 +1934,14 @@ simcir.$ = function() {
       $dev.trigger('deviceRemove');
       // before remove, disconnect all
       devCtrl.disconnectAll();
+      // remove from schema
+      data.devices = data.devices.filter(function(d) {
+        return d !== devCtrl.deviceDef;
+      });
+      var prefix = devCtrl.id + '.';
+      data.connectors = data.connectors.filter(function(c) {
+        return c.from.indexOf(prefix) !== 0 && c.to.indexOf(prefix) !== 0;
+      });
       $dev.trigger('dispose');
       updateConnectors();
       updateToolboxState();
@@ -2009,69 +2027,39 @@ simcir.$ = function() {
 
     var getData = function() {
 
-      // renumber all id
-      var devIdCount = 0;
+      // sync state from controllers to schema entries
       $devicePane.children('.simcir-device').each(function() {
-        var $dev = $(this);
-        var device = controller($dev);
-        var devId = 'dev' + devIdCount++;
-        device.id = devId;
-        $.each(device.getInputs(), function(i, node) {
-          node.id = devId + '.in' + i;
-        });
-        $.each(device.getOutputs(), function(i, node) {
-          node.id = devId + '.out' + i;
+        var device = controller($(this));
+        var state = device.getState();
+        if (state != null) {
+          device.deviceDef.state = state;
+        }
+      });
+
+      // sync toolbox from toolbox pane
+      data.toolbox = [];
+      $toolboxDevicePane.children('.simcir-device').each(function() {
+        data.toolbox.push(controller($(this)).deviceDef);
+      });
+
+      // rebuild devices list from DOM order (entries are the same objects)
+      data.devices = [];
+      $devicePane.children('.simcir-device').each(function() {
+        data.devices.push(controller($(this)).deviceDef);
+      });
+
+      // rebuild connectors from connections
+      data.connectors = [];
+      $devicePane.children('.simcir-device').each(function() {
+        var device = controller($(this));
+        $.each(device.getInputs(), function(i, inNode) {
+          if (inNode.getOutput() != null) {
+            data.connectors.push({from:inNode.id, to:inNode.getOutput().id});
+          }
         });
       });
 
-      var toolbox = [];
-      var devices = [];
-      var connectors = [];
-      var clone = function(obj) {
-        return JSON.parse(JSON.stringify(obj) );
-      };
-      $toolboxDevicePane.children('.simcir-device').each(function() {
-        var $dev = $(this);
-        var device = controller($dev);
-        toolbox.push(device.deviceDef);
-      });
-      $devicePane.children('.simcir-device').each(function() {
-        var $dev = $(this);
-        var device = controller($dev);
-        $.each(device.getInputs(), function(i, inNode) {
-          if (inNode.getOutput() != null) {
-            connectors.push({from:inNode.id, to:inNode.getOutput().id});
-          }
-        });
-        var pos = transform($dev);
-        var deviceDef = clone(device.deviceDef);
-        deviceDef.id = device.id;
-        deviceDef.x = pos.x;
-        deviceDef.y = pos.y;
-        deviceDef.label = device.getLabel();
-        var state = device.getState();
-        if (state != null) {
-          deviceDef.state = state;
-        }
-        devices.push(deviceDef);
-      });
-      return {
-        width: data.width,
-        height: data.height,
-        showToolbox: data.showToolbox,
-        editable: data.editable,
-        canAdd: data.canAdd,
-        canRemove: data.canRemove,
-        canMove: data.canMove,
-        canRewire: data.canRewire,
-        canEdit: data.canEdit,
-        portRadius: data.portRadius,
-        rectanglePadding: data.rectanglePadding,
-        portPadding: data.portPadding,
-        toolbox: toolbox,
-        devices: devices,
-        connectors: connectors
-      };
+      return data;
     };
     var getText = function() {
 
@@ -2150,6 +2138,9 @@ simcir.$ = function() {
         var outNode = srcCtrl.getOutput();
         disconnect($srcNode);
         if (outNode) {
+          data.connectors = data.connectors.filter(function(c) {
+            return !(c.from === outNode.id && c.to === srcCtrl.id);
+          });
           $workspace.trigger('connectionChanged', {
             type: 'disconnect',
             output: {
@@ -2179,6 +2170,10 @@ simcir.$ = function() {
           var node1Type = $srcNode.attr('simcir-node-type');
           var $outNode = node1Type == 'out' ? $srcNode : $dstNode;
           var $inNode = node1Type == 'in' ? $srcNode : $dstNode;
+          data.connectors.push({
+            from: controller($outNode).id,
+            to: controller($inNode).id
+          });
           $workspace.trigger('connectionChanged', {
             type: 'connect',
             output: {
@@ -2201,12 +2196,20 @@ simcir.$ = function() {
           countDevicesByTypeAndLabel(toolCtrl.deviceDef.type, toolCtrl.labelMask) >= toolCtrl.maxCount) {
         return;
       }
-      var deviceDef = toolCtrl.deviceDef;
+      var deviceDef = $.extend({}, toolCtrl.deviceDef);
       if (toolCtrl.labelMask) {
-        deviceDef = $.extend({}, deviceDef);
         deviceDef.label = toolCtrl.labelMask.replace('%n', '' + (countDevicesByTypeAndLabel(toolCtrl.deviceDef.type, toolCtrl.labelMask) + 1));
       }
       var $dev = createDevice(deviceDef, false, scope, nodeDefaults);
+      var devCtrl = controller($dev);
+      devCtrl.id = 'dev' + (++deviceIdCounter);
+      deviceDef.id = devCtrl.id;
+      devCtrl.getInputs().forEach(function(node, j) {
+        node.id = devCtrl.id + '.in' + j;
+      });
+      devCtrl.getOutputs().forEach(function(node, j) {
+        node.id = devCtrl.id + '.out' + j;
+      });
       var pos = offset($toolDev);
       transform($dev, pos.x, pos.y);
       $temporaryPane.append($dev);
@@ -2288,6 +2291,8 @@ simcir.$ = function() {
             var ctrl = controller($dev);
             var oldPos = oldDevicePos[ctrl.id];
             var newPos = transform($dev);
+            ctrl.deviceDef.x = newPos.x;
+            ctrl.deviceDef.y = newPos.y;
             if (oldPos && (oldPos.x != newPos.x || oldPos.y != newPos.y)) {
               $workspace.trigger('deviceMoved', {
                 device: {
@@ -2307,6 +2312,8 @@ simcir.$ = function() {
             var ctrl = controller($dev);
             var oldPos = oldDevicePos[ctrl.id];
             var newPos = transform($dev);
+            ctrl.deviceDef.x = newPos.x;
+            ctrl.deviceDef.y = newPos.y;
             if (oldPos && (oldPos.x != newPos.x || oldPos.y != newPos.y)) {
               $workspace.trigger('deviceMoved', {
                 device: {

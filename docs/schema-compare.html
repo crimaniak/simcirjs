@@ -103,6 +103,10 @@ textarea {
     Ignore Equivalency Groups
   </label>
   <label style="margin-left:16px;">
+    <input type="checkbox" id="ignoreDeviceIds" />
+    Ignore Device IDs
+  </label>
+  <label style="margin-left:16px;">
     <input type="checkbox" id="ignoreState" checked />
     Ignore State
   </label>
@@ -159,6 +163,7 @@ simcir.$(function() {
   var $json2 = simcir.$('#json2');
   var $result = simcir.$('#result');
   var $ignoreEquiv = simcir.$('#ignoreEquiv');
+  var $ignoreDeviceIds = simcir.$('#ignoreDeviceIds');
   var $ignoreState = simcir.$('#ignoreState');
 
   var ws1 = simcir.createWorkspace(schema1);
@@ -169,51 +174,20 @@ simcir.$(function() {
   var EVENTS = ['deviceAdded','deviceRemoved','deviceMoved',
       'deviceLabelChanged','connectionChanged','schemaChange'];
 
-  var normalizeSchema = function(schema) {
-    var devices = (schema.devices || []).slice();
-    devices.sort(function(a, b) {
-      if (a.type !== b.type) return a.type < b.type ? -1 : 1;
-      var al = a.label || '';
-      var bl = b.label || '';
-      if (al !== bl) return al < bl ? -1 : 1;
-      return 0;
-    });
-    var idMap = {};
-    devices.forEach(function(dev, i) {
-      idMap[dev.id] = 'dev' + i;
-      dev.id = 'dev' + i;
-    });
-    var connectors = (schema.connectors || []).map(function(conn) {
-      var fromParts = conn.from.split('.');
-      var toParts = conn.to.split('.');
-      return {
-        from: idMap[fromParts[0]] + '.' + fromParts[1],
-        to: idMap[toParts[0]] + '.' + toParts[1]
-      };
-    });
-    return {
-      width: schema.width,
-      height: schema.height,
-      showToolbox: schema.showToolbox,
-      editable: schema.editable,
-      devices: devices,
-      connectors: connectors
-    };
-  };
-
   var runComparison = function() {
     var text1 = simcir.controller(ws1).text();
     var text2 = simcir.controller(ws2).text();
-    var normalized1 = normalizeSchema(JSON.parse(text1));
-    var normalized2 = normalizeSchema(JSON.parse(text2));
-    $json1.val(JSON.stringify(normalized1, null, 2));
-    $json2.val(JSON.stringify(normalized2, null, 2));
+    var schema1 = JSON.parse(text1);
+    var schema2 = JSON.parse(text2);
+    $json1.val(JSON.stringify(schema1, null, 2));
+    $json2.val(JSON.stringify(schema2, null, 2));
 
     var comparator = new simcir.SchemaComparator({
       ignoreEquivalencyGroups: $ignoreEquiv.prop('checked'),
+      ignoreDeviceIds: $ignoreDeviceIds.prop('checked'),
       ignoreState: $ignoreState.prop('checked')
     });
-    var result = comparator.compare(normalized1, normalized2);
+    var result = comparator.compare(schema1, schema2);
 
     var html = '';
     if (result.equal) {
@@ -262,6 +236,7 @@ simcir.$(function() {
   });
 
   $ignoreEquiv.on('change', function() { runComparison(); });
+  $ignoreDeviceIds.on('change', function() { runComparison(); });
   $ignoreState.on('change', function() { runComparison(); });
 
   runComparison();

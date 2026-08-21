@@ -137,6 +137,7 @@ interface SimcirEquivalencyGroupDef {
 interface SimcirSchemaComparatorOptions {
   omitAttributes?: string[];
   ignoreEquivalencyGroups?: boolean;
+  ignoreDeviceIds?: boolean;
   ignoreState?: boolean;
   equivalencyGroups?: { [type : string] : SimcirEquivalencyGroupDef };
 }
@@ -171,6 +172,7 @@ interface SimcirComparisonResult {
 declare class SchemaComparatorOptions {
   omitAttributes: string[];
   ignoreEquivalencyGroups: boolean;
+  ignoreDeviceIds: boolean;
   ignoreState: boolean;
   equivalencyGroups: { [type : string] : SimcirEquivalencyGroupDef };
   constructor(options?: SimcirSchemaComparatorOptions);

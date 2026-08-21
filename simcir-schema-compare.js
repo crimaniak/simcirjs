@@ -117,12 +117,39 @@
         '>' + tgt.devId + ':' + portClass(options, devMap, tgt);
   };
 
+  var normalizeSchemaIds = function(schema) {
+    var devices = (schema.devices || []).map(function(d) {
+      var clone = {};
+      Object.keys(d).forEach(function(k) { clone[k] = d[k]; });
+      return clone;
+    });
+    devices.sort(function(a, b) {
+      if (a.type !== b.type) return a.type < b.type ? -1 : 1;
+      return 0;
+    });
+    var idMap = {};
+    devices.forEach(function(dev, i) {
+      idMap[dev.id] = 'dev' + i;
+      dev.id = 'dev' + i;
+    });
+    var connectors = (schema.connectors || []).map(function(conn) {
+      var fromParts = conn.from.split('.');
+      var toParts = conn.to.split('.');
+      return {
+        from: idMap[fromParts[0]] + '.' + fromParts[1],
+        to: idMap[toParts[0]] + '.' + toParts[1]
+      };
+    });
+    return { devices: devices, connectors: connectors };
+  };
+
   class SchemaComparatorOptions {
     constructor(options) {
       options = options || {};
       this.omitAttributes = options.omitAttributes != null?
           options.omitAttributes : ['x', 'y'];
       this.ignoreEquivalencyGroups = options.ignoreEquivalencyGroups || false;
+      this.ignoreDeviceIds = options.ignoreDeviceIds || true;
       this.ignoreState = options.ignoreState != null?
           options.ignoreState : true;
       if (this.ignoreState &&
@@ -142,6 +169,10 @@
 
     compare(schema1, schema2) {
       var options = this.options;
+      if (options.ignoreDeviceIds) {
+        schema1 = normalizeSchemaIds(schema1);
+        schema2 = normalizeSchemaIds(schema2);
+      }
       var devMap1 = {};
       var devMap2 = {};
       (schema1.devices || []).forEach(function(dev) {
